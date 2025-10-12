@@ -1,0 +1,37 @@
+# Configuration for antimicrobial activity judge (Logistic Regression, all organisms)
+
+task: antimicrobial_activity
+model: logistic_regression
+
+# Data paths
+data_dir: /rds/general/user/kja24/home/amp_dfm/data
+checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/judges
+output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/judges
+
+# Task-specific parameters
+organism: null  # null for all organisms
+
+thresholds:
+  pos_threshold_ugml: 32
+  neg_threshold_ugml: 128
+
+negatives:
+  - negatives_swissprot_with_splits.csv
+  - negatives_synth_with_splits.csv
+
+gamma_synthetic: 0.25
+
+# Optuna hyper-parameter tuning
+optuna:
+  trials: 20  # Fewer trials for logistic regression
+  cv_folds: 5
+
+model_params:
+  penalty: l2
+  solver: liblinear
+  max_iter: 3000
+  random_state: 42
+
+evaluation:
+  cv_folds: 5
+

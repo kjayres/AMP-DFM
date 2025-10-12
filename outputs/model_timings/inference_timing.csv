@@ -1,0 +1,9 @@
+task,model_type,organism,n_peptides,seconds,ms_per_peptide
+cytotoxicity,logistic_regression,all,200,0.0006054565310478,0.0030272826552391
+cytotoxicity,logistic_regression,all,200,0.0004175305366516,0.002087652683258
+cytotoxicity,logistic_regression,all,200,0.0007830038666725,0.0039150193333625
+cytotoxicity,logistic_regression,all,200,0.0010217614471912,0.0051088072359561
+cytotoxicity,xgboost,all,200,0.0093346498906612,0.0466732494533062
+haemolysis,logistic_regression,all,737,0.0005341656506061,0.0007247837864398
+haemolysis,xgboost,all,737,0.0326246209442615,0.0442667855417388
+cytotoxicity,random_forest,all,200,0.056691113859415054,0.28345556929707527

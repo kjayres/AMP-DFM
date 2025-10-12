@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment
+.env
+.venv
+env/
+venv/
+
+# Model checkpoints and weights
+checkpoints/
+
+# Large data files
+data/embeddings/*.npy
+data/embeddings/*.pkl
+data/dfm/tokenised_ampdfm_cond/
+data/dfm/tokenised_ampdfm_uncond/
+
+# Generated outputs
+outputs/peptides/
+outputs/judges/*/predictions/
+outputs/judges/*/models/
+outputs/ablations/*/predictions/
+
+# HPC job outputs
+*.o[0-9]*
+*.e[0-9]*
+*.OU
+*.ER
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+

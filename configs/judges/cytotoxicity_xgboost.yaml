@@ -1,0 +1,32 @@
+# Configuration for cytotoxicity judge (XGBoost)
+
+task: cytotoxicity
+model: xgboost
+
+# Data paths
+data_dir: /rds/general/user/kja24/home/amp_dfm/data
+checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/judges
+output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/judges
+
+# Task-specific parameters
+thresholds:
+  tox_threshold_um: 50
+  decision_threshold: 0.55
+
+# Optuna hyper-parameter tuning
+optuna:
+  trials: 20
+  cv_folds: 5
+
+training:
+  num_boost_round: 2000
+  early_stopping_rounds: 100
+
+xgboost_params:
+  objective: binary:logistic
+  eval_metric: auc
+  random_state: 42
+
+evaluation:
+  cv_folds: 5
+
