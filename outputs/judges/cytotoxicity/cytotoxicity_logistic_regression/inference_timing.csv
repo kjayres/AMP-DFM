@@ -1,0 +1,2 @@
+task,model_type,organism,n_peptides,seconds,ms_per_peptide
+cytotoxicity,logistic_regression,all,200,0.0010217614471912384,0.005108807235956192

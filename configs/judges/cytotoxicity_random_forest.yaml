@@ -1,0 +1,28 @@
+# Configuration for cytotoxicity judge (Random Forest)
+
+task: cytotoxicity
+model: random_forest
+
+# Data paths
+data_dir: /rds/general/user/kja24/home/amp_dfm/data
+checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/judges
+output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/judges
+
+# Task-specific parameters
+# Optuna hyper-parameter tuning
+optuna:
+  trials: 20
+  cv_folds: 5
+
+thresholds:
+  tox_threshold_um: 50
+  decision_threshold: 0.55
+
+model_params:
+  n_estimators: 500
+  max_depth: null
+  random_state: 42
+
+evaluation:
+  cv_folds: 5
+

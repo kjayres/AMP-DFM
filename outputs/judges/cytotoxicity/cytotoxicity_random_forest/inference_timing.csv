@@ -1,0 +1,2 @@
+task,model_type,organism,n_peptides,seconds,ms_per_peptide
+cytotoxicity,random_forest,all,200,0.056691113859415054,0.28345556929707527
