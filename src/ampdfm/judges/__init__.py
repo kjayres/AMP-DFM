@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Judge models for antimicrobial peptide property prediction.
 
-This module provides judge models for:
+This module provides XGBoost-based judge models for:
 - Antimicrobial activity: potency classification (MIC thresholds)
 - Haemolysis: erythrocyte toxicity prediction
 - Cytotoxicity: cell-line toxicity prediction
@@ -43,22 +43,18 @@ from .antimicrobial_activity import (
 from .base import BaseJudge
 from .cytotoxicity import CytotoxicityJudge, label_cytotoxicity_sequences
 from .haemolysis import HaemolysisJudge, label_haemolysis_sequences
-from .sklearn_judge import SklearnJudge
+from .xgboost_judge import XGBoostJudge
 from .utils import create_train_val_test_splits, load_embeddings, prepare_features
-from .optuna_helpers import (
-    tune_xgboost,
-    tune_random_forest,
-    tune_logistic_regression,
-)
+from .optuna_helpers import tune_xgboost
 
 __all__ = [
-    # Base class
+    # Base classes
     "BaseJudge",
+    "XGBoostJudge",
     # Judge classes
     "AntimicrobialActivityJudge",
     "HaemolysisJudge",
     "CytotoxicityJudge",
-    "SklearnJudge",
     # Labelling helpers
     "label_antimicrobial_activity_sequences",
     "label_haemolysis_sequences",
@@ -70,7 +66,5 @@ __all__ = [
     "create_train_val_test_splits",
     # Optuna tuning
     "tune_xgboost",
-    "tune_random_forest",
-    "tune_logistic_regression",
 ]
 

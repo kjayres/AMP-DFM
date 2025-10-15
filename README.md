@@ -1,0 +1,3 @@
+This repository contains the code, data and implementation details for my MSc thesis at Imperial College London. The model is a discrete flow matching model with reweighted jump rates using trained classifiers on antimicrobial peptide property data. The code and implementation details are inspired by this paper by Tong et al.
+
+The data processing and protein structure prediction were processed in separate repositories. This codebase is a refactored version of the original so some details may differ than those shared in the report.

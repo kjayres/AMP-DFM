@@ -1,2 +1,0 @@
-task,model_type,organism,n_peptides,seconds,ms_per_peptide
-haemolysis,xgboost,all,737,0.03262462094426155,0.04426678554173887

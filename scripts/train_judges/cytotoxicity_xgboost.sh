@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l walltime=09:30:00
+#PBS -l walltime=12:00:00
 #PBS -l select=1:ncpus=4:mem=16gb
-#PBS -N ampdfm_cyto_xgb
+#PBS -N ampdfm_cytotoxicity_xgb
 #PBS -j oe
 #PBS -o /rds/general/user/kja24/home/amp_dfm/scripts/train_judges/
 #PBS -e /rds/general/user/kja24/home/amp_dfm/scripts/train_judges/
