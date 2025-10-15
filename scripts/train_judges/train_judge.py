@@ -3,10 +3,9 @@
 
 This script handles training for all combinations of:
 - Tasks: antimicrobial_activity, haemolysis, cytotoxicity
-- Models: xgboost, random_forest, logistic_regression
 - Variants: all organisms, species-specific (for antimicrobial_activity)
 
-Configuration is loaded from YAML files to keep the script minimal and flexible.
+All models use XGBoost. Configuration is loaded from YAML files to keep the script minimal and flexible.
 """
 
 from __future__ import annotations
@@ -17,14 +16,9 @@ import pickle
 from pathlib import Path
 import sys
 
-import matplotlib.pyplot as plt
-import time
 import numpy as np
 import pandas as pd
 import yaml
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import RocCurveDisplay
 
 # Ensure local package imports work when running from PBS wrappers
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../amp_dfm
@@ -34,7 +28,6 @@ from ampdfm.judges import (
     AntimicrobialActivityJudge,
     CytotoxicityJudge,
     HaemolysisJudge,
-    SklearnJudge,
     compute_sample_weights,
     create_train_val_test_splits,
     label_antimicrobial_activity_sequences,
@@ -42,8 +35,6 @@ from ampdfm.judges import (
     label_haemolysis_sequences,
     load_embeddings,
     prepare_features,
-    tune_logistic_regression,
-    tune_random_forest,
     tune_xgboost,
 )
 
@@ -81,12 +72,14 @@ def main():
 
     # Extract configuration
     task = config['task']
-    model_type = config['model']
     data_dir = Path(config['data_dir'])
     checkpoint_dir = Path(config['checkpoint_dir'])
     output_dir = Path(config['output_dir'])
 
     # Task-specific configuration
+    # Extract decision_threshold for all tasks (optional)
+    decision_threshold_cfg = config.get('thresholds', {}).get('decision_threshold', None)
+    
     if task == 'antimicrobial_activity':
         organism = config.get('organism', None)
         pos_threshold = config['thresholds']['pos_threshold_ugml']
@@ -97,17 +90,13 @@ def main():
             'negatives_synth_with_splits.csv'
         ])
         xgboost_params_cfg = config.get('xgboost_params', {})
-        model_params_cfg = config.get('model_params', {})
     elif task == 'haemolysis':
         conc_threshold = config['thresholds']['conc_threshold_um']
         pct_threshold = config['thresholds']['pct_threshold']
         xgboost_params_cfg = config.get('xgboost_params', {})
-        model_params_cfg = config.get('model_params', {})
     elif task == 'cytotoxicity':
         tox_threshold = config['thresholds']['tox_threshold_um']
-        decision_threshold_cfg = config.get('thresholds', {}).get('decision_threshold', None)
         xgboost_params_cfg = config.get('xgboost_params', {})
-        model_params_cfg = config.get('model_params', {})
     else:
         raise ValueError(f"Unknown task: {task}")
 
@@ -115,6 +104,7 @@ def main():
     optuna_config = config.get('optuna', {})
     n_trials = optuna_config.get('trials', 50)
     cv_folds = optuna_config.get('cv_folds', 5)
+    search_space = optuna_config.get('search_space', {})
 
     # Training configuration
     training_cfg = config.get('training', {})
@@ -125,26 +115,29 @@ def main():
     evaluation_cfg = config.get('evaluation', {})
     eval_cv_folds = int(evaluation_cfg.get('cv_folds', 0))
 
-    # Create output directories (no "_all" suffix; nest organism if provided)
-    base_run_name = f"{task}_{model_type}"
-    organism_subdir = (
-        organism.replace(' ', '_').lower()
-        if task == 'antimicrobial_activity' and organism
-        else None
-    )
-    checkpoint_path = (
-        checkpoint_dir / task / organism_subdir / base_run_name
-        if organism_subdir else checkpoint_dir / task / base_run_name
-    )
-    output_path = (
-        output_dir / task / organism_subdir / base_run_name
-        if organism_subdir else output_dir / task / base_run_name
-    )
+    # Create output directories with correct structure
+    # For antimicrobial_activity: outputs/judges/antimicrobial_activity/{generic|escherichia_coli|...}
+    # For others: outputs/judges/{cytotoxicity|haemolysis}
+    if task == 'antimicrobial_activity':
+        if organism:
+            # Map organism name to folder name
+            organism_folder = organism.replace(' ', '_').lower()
+        else:
+            organism_folder = 'generic'
+        
+        checkpoint_path = checkpoint_dir / task / organism_folder
+        output_path = output_dir / task / organism_folder
+        organism_label = f" ({organism_folder})"
+    else:
+        # cytotoxicity or haemolysis - no subfolders
+        checkpoint_path = checkpoint_dir / task
+        output_path = output_dir / task
+        organism_label = ""
+    
     checkpoint_path.mkdir(parents=True, exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    organism_label = f" ({organism_subdir})" if organism_subdir else ""
-    logger.info(f"Training {model_type} for {task}{organism_label}")
+    logger.info(f"Training XGBoost for {task}{organism_label}")
     logger.info(f"Checkpoints: {checkpoint_path}")
     logger.info(f"Outputs: {output_path}")
 
@@ -167,6 +160,7 @@ def main():
             negatives_dfs=negatives_dfs,
             pos_threshold_ugml=pos_threshold,
             neg_threshold_ugml=neg_threshold,
+            gamma_synthetic=gamma_synthetic,
             organism_filter=organism,
         )
     elif task == 'haemolysis':
@@ -224,87 +218,61 @@ def main():
     X_dev = np.vstack([X_train, X_val])
     y_dev = np.concatenate([y_train, y_val])
     clusters_dev = np.concatenate([clusters_train, clusters_val])
+    dev_sequences = train_sequences + val_sequences
     
     # Sanity check: ensure lengths match for GroupKFold
     assert X_dev.shape[0] == y_dev.shape[0] == clusters_dev.shape[0], \
         f"Length mismatch: X_dev={X_dev.shape[0]}, y_dev={y_dev.shape[0]}, clusters_dev={clusters_dev.shape[0]}"
     
-    if sample_weight is not None:
-        # Create sample weight for dev set (train only, val gets weight=1)
-        sample_weight_dev = np.concatenate([sample_weight, np.ones(len(y_val))])
+    # For antimicrobial activity, use per-sequence weights for BOTH train and val during tuning
+    if task == 'antimicrobial_activity':
+        w_map_dev = compute_sample_weights(
+            pd.concat([df_train, df_val], ignore_index=True),
+            gamma_synthetic=gamma_synthetic,
+        )
+        # Align to dev feature order
+        w_dev = w_map_dev.loc[dev_sequences].to_numpy()
+        sample_weight_dev = w_dev
+        val_weight_dev = w_dev
     else:
         sample_weight_dev = None
+        val_weight_dev = None
 
-    if model_type == 'xgboost':
-        best_params = tune_xgboost(
-            X_dev, y_dev, clusters_dev,
-            sample_weight_dev=sample_weight_dev,
-            n_trials=n_trials,
-            cv_folds=cv_folds,
-        )
-        # Merge YAML-provided xgboost_params as defaults (tuned values override)
-        if best_params is None:
-            best_params = {}
-        best_params = {**xgboost_params_cfg, **best_params}
-        
-        # Create and train final XGBoost judge
-        if task == 'antimicrobial_activity':
-            judge = AntimicrobialActivityJudge()
-        elif task == 'haemolysis':
-            judge = HaemolysisJudge()
-        elif task == 'cytotoxicity':
-            # Allow optional decision threshold override from config
-            judge = CytotoxicityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg is not None else CytotoxicityJudge()
-            
-    elif model_type == 'random_forest':
-        best_params = tune_random_forest(
-            X_dev, y_dev, clusters_dev,
-            sample_weight_dev=sample_weight_dev,
-            n_trials=n_trials,
-            cv_folds=cv_folds,
-        )
-        # Merge YAML model_params defaults with tuned params (tuned override)
-        if best_params is None:
-            best_params = {}
-        combined_params = {**model_params_cfg, **best_params}
-        # For cytotoxicity, pass decision threshold to the wrapper
-        if task == 'cytotoxicity' and decision_threshold_cfg is not None:
-            judge = SklearnJudge(RandomForestClassifier, combined_params, decision_threshold=decision_threshold_cfg)
-        else:
-            judge = SklearnJudge(RandomForestClassifier, combined_params)
-        
-    elif model_type == 'logistic_regression':
-        best_params = tune_logistic_regression(
-            X_dev, y_dev, clusters_dev,
-            sample_weight_dev=sample_weight_dev,
-            n_trials=n_trials,
-            cv_folds=cv_folds,
-        )
-        if best_params is None:
-            best_params = {}
-        combined_params = {**model_params_cfg, **best_params}
-        if task == 'cytotoxicity' and decision_threshold_cfg is not None:
-            judge = SklearnJudge(LogisticRegression, combined_params, decision_threshold=decision_threshold_cfg)
-        else:
-            judge = SklearnJudge(LogisticRegression, combined_params)
-        
+    # Run Optuna tuning for XGBoost
+    best_params = tune_xgboost(
+        X_dev, y_dev, clusters_dev,
+        sample_weight_dev=sample_weight_dev,
+        val_weight_dev=val_weight_dev,
+        n_trials=n_trials,
+        cv_folds=cv_folds,
+        search_space_config=search_space,
+        base_params=xgboost_params_cfg,
+        num_boost_round=num_boost_round_cfg,
+        early_stopping_rounds=early_stopping_rounds_cfg,
+    )
+    # Merge YAML-provided xgboost_params as defaults (tuned values override)
+    if best_params is None:
+        best_params = {}
+    best_params = {**xgboost_params_cfg, **best_params}
+    
+    # Create task-specific XGBoost judge
+    if task == 'antimicrobial_activity':
+        judge = AntimicrobialActivityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg is not None else AntimicrobialActivityJudge()
+    elif task == 'haemolysis':
+        judge = HaemolysisJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg is not None else HaemolysisJudge()
+    elif task == 'cytotoxicity':
+        judge = CytotoxicityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg is not None else CytotoxicityJudge()
     else:
-        raise ValueError(f"Unknown model type: {model_type}")
+        raise ValueError(f"Unknown task: {task}")
 
-    # Train final model
-    if model_type == 'xgboost':
-        result = judge.train(
-            X_train, y_train, X_val, y_val,
-            sample_weight=sample_weight,
-            params_override=best_params,
-            num_boost_round=num_boost_round_cfg,
-            early_stopping_rounds=early_stopping_rounds_cfg,
-        )
-    else:
-        result = judge.train(
-            X_train, y_train, X_val, y_val,
-            sample_weight=sample_weight,
-        )
+    # Train final XGBoost model
+    result = judge.train(
+        X_train, y_train, X_val, y_val,
+        sample_weight=sample_weight,
+        params_override=best_params,
+        num_boost_round=num_boost_round_cfg,
+        early_stopping_rounds=early_stopping_rounds_cfg,
+    )
 
     # Evaluate on all splits
     train_auc, train_proba, train_pred = judge.evaluate(X_train, y_train, "Train")
@@ -329,8 +297,8 @@ def main():
     roc_df.to_csv(output_path / 'roc_curve_data.csv', index=False)
     logger.info(f"ROC curve data saved to {output_path / 'roc_curve_data.csv'}")
 
-    # Save learning curve data (not plots)
-    if model_type == 'xgboost' and 'evals_result' in result:
+    # Save learning curve data (XGBoost training history)
+    if 'evals_result' in result:
         evals = result['evals_result']
         pd.DataFrame({
             'round': np.arange(len(evals['train']['auc'])),
@@ -338,10 +306,6 @@ def main():
             'val_auc': evals['val']['auc'],
         }).to_csv(output_path / 'learning_curve.csv', index=False)
         logger.info(f"Learning curve data saved to {output_path / 'learning_curve.csv'}")
-    elif model_type != 'xgboost':
-        # Save a simple CSV with single-point AUCs for sklearn models
-        pd.DataFrame({'train_auc': [train_auc], 'val_auc': [val_auc]}).to_csv(output_path / 'learning_curve.csv', index=False)
-        logger.info(f"Learning curve (single-point) saved to {output_path / 'learning_curve.csv'}")
 
     # Optional cluster-aware cross-validation for robustness estimates
     if eval_cv_folds and eval_cv_folds > 1:
@@ -361,85 +325,43 @@ def main():
             X_tr_cv, y_tr_cv, tr_seqs_cv = prepare_features(tr_rows, embeddings, seq_index)
             X_val_cv, y_val_cv, _ = prepare_features(va_rows, embeddings, seq_index)
 
-            # Build judge per task/model
-            if model_type == 'xgboost':
-                if task == 'antimicrobial_activity':
-                    judge_cv = AntimicrobialActivityJudge()
-                elif task == 'haemolysis':
-                    judge_cv = HaemolysisJudge()
-                else:
-                    judge_cv = CytotoxicityJudge(decision_threshold=decision_threshold_cfg) if 'decision_threshold_cfg' in locals() and decision_threshold_cfg is not None else CytotoxicityJudge()
-
-                # Sample weights for antimicrobial activity
-                if task == 'antimicrobial_activity':
-                    w_map_cv = compute_sample_weights(tr_rows, gamma_synthetic=gamma_synthetic)
-                    w_tr_cv = w_map_cv.loc[tr_seqs_cv].to_numpy()
-                else:
-                    w_tr_cv = None
-
-                res_cv = judge_cv.train(
-                    X_tr_cv, y_tr_cv, X_val_cv, y_val_cv,
-                    sample_weight=w_tr_cv,
-                    params_override=best_params,
-                    num_boost_round=num_boost_round_cfg,
-                    early_stopping_rounds=early_stopping_rounds_cfg,
-                )
-                auc_cv, _, _ = judge_cv.evaluate(X_val_cv, y_val_cv, split_name=f"CV{fold}")
+            # Build task-specific XGBoost judge
+            if task == 'antimicrobial_activity':
+                judge_cv = AntimicrobialActivityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg is not None else AntimicrobialActivityJudge()
+            elif task == 'haemolysis':
+                judge_cv = HaemolysisJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg is not None else HaemolysisJudge()
             else:
-                # Sklearn models via wrapper
-                if model_type == 'random_forest':
-                    judge_cv = SklearnJudge(RandomForestClassifier, model_params_cfg, decision_threshold=decision_threshold_cfg if task == 'cytotoxicity' else None)
-                else:
-                    judge_cv = SklearnJudge(LogisticRegression, model_params_cfg, decision_threshold=decision_threshold_cfg if task == 'cytotoxicity' else None)
+                judge_cv = CytotoxicityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg is not None else CytotoxicityJudge()
 
-                # Sklearn fit; antimicrobial sample weights ignored unless supported
-                res_cv = judge_cv.train(X_tr_cv, y_tr_cv, X_val_cv, y_val_cv)
-                auc_cv, _, _ = judge_cv.evaluate(X_val_cv, y_val_cv, split_name=f"CV{fold}")
+            # Sample weights for antimicrobial activity
+            if task == 'antimicrobial_activity':
+                w_map_cv = compute_sample_weights(tr_rows, gamma_synthetic=gamma_synthetic)
+                w_tr_cv = w_map_cv.loc[tr_seqs_cv].to_numpy()
+            else:
+                w_tr_cv = None
+
+            res_cv = judge_cv.train(
+                X_tr_cv, y_tr_cv, X_val_cv, y_val_cv,
+                sample_weight=w_tr_cv,
+                params_override=best_params,
+                num_boost_round=num_boost_round_cfg,
+                early_stopping_rounds=early_stopping_rounds_cfg,
+            )
+            auc_cv, _, _ = judge_cv.evaluate(X_val_cv, y_val_cv, split_name=f"CV{fold}")
 
             aucs.append(float(auc_cv))
 
         pd.DataFrame({'fold': np.arange(1, len(aucs)+1), 'auc': aucs}).to_csv(fold_dir / 'cv_metrics.csv', index=False)
         logger.info(f"CV metrics saved to {fold_dir / 'cv_metrics.csv'}")
 
-    # Inference timing on test set (store per-run and aggregate)
-    start = time.perf_counter()
-    _ = judge.predict_proba(X_test)
-    elapsed = time.perf_counter() - start
-    ms_per_pep = (elapsed / len(X_test)) * 1000.0 if len(X_test) else float('nan')
-
-    timing_df = pd.DataFrame({
-        'task': [task],
-        'model_type': [model_type],
-        'organism': [organism_subdir if organism_subdir else 'all'],
-        'n_peptides': [int(len(X_test))],
-        'seconds': [float(elapsed)],
-        'ms_per_peptide': [float(ms_per_pep)],
-    })
-    timing_df.to_csv(output_path / 'inference_timing.csv', index=False)
-    # Also append/aggregate under outputs/model_timings
-    timings_root = output_dir.parent / 'model_timings'
-    timings_root.mkdir(parents=True, exist_ok=True)
-    aggregate_csv = timings_root / 'inference_timing.csv'
-    if aggregate_csv.exists():
-        prev = pd.read_csv(aggregate_csv)
-        pd.concat([prev, timing_df], ignore_index=True).to_csv(aggregate_csv, index=False)
-    else:
-        timing_df.to_csv(aggregate_csv, index=False)
-    logger.info(f"Inference timing saved to {output_path / 'inference_timing.csv'} and aggregated at {aggregate_csv}")
-
-    # Save model checkpoint
-    if model_type == 'xgboost':
-        model_path = checkpoint_path / 'model.json'
-    else:
-        model_path = checkpoint_path / 'model.pkl'
-    
+    # Save XGBoost model checkpoint
+    model_path = checkpoint_path / 'model.json'
     judge.save(model_path)
 
     # Save metadata
     metadata = {
         'task': task,
-        'model_type': model_type,
-        'organism': organism_subdir if organism_subdir else 'all',
+        'model_type': 'xgboost',
         'best_params': best_params,
         'train_auc': float(train_auc),
         'val_auc': float(val_auc),
@@ -452,7 +374,7 @@ def main():
     
     if task == 'antimicrobial_activity':
         metadata.update({
-            'organism': organism,
+            'organism': organism if organism else 'all',
             'pos_threshold_ugml': pos_threshold,
             'neg_threshold_ugml': neg_threshold,
             'gamma_synthetic': gamma_synthetic,

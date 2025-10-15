@@ -8,17 +8,14 @@ based on ESM-2 embeddings using XGBoost.
 from __future__ import annotations
 
 import logging
-import pickle
 import sys
-from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 
-from .base import BaseJudge
+from .xgboost_judge import XGBoostJudge
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +67,21 @@ def label_antimicrobial_activity_sequences(
     )
 
     df = activity_df.copy()
+
+    # Restrict to MIC-family endpoints if available, mirroring legacy logic
+    # (GRAMPA sometimes aliases MIC under a combined group label)
+    if "measure_group" in df.columns:
+        allowed_groups = {"MIC", "MIC50", "MIC90", "MIC,IC50,LC50,LD50"}
+        before_rows = len(df)
+        df = df[df["measure_group"].isin(allowed_groups)].copy()
+        logger.info(
+            "Filtered activity data to MIC family endpoints – %d → %d rows (%.1f%%)",
+            before_rows,
+            len(df),
+            (len(df) / before_rows * 100.0) if before_rows else 0.0,
+        )
+    else:
+        logger.info("No 'measure_group' column found – skipping MIC endpoint filter")
 
     # Optional organism filtering for species-specific models
     if organism_filter:
@@ -148,11 +160,10 @@ def label_antimicrobial_activity_sequences(
             if missing_cols:
                 raise ValueError(f"Negatives DataFrame missing columns: {missing_cols}")
 
-            neg_sequences = neg_df[required_cols].drop_duplicates().copy()
+            # Preserve provided quality if available; otherwise default to curated
+            keep_cols = required_cols + (["quality"] if "quality" in neg_df.columns else [])
+            neg_sequences = neg_df[keep_cols].drop_duplicates().copy()
             neg_sequences["label"] = 0
-
-            # Infer quality from whether the DataFrame looks synthetic
-            # (this is a heuristic; caller can override by setting 'quality' column)
             if "quality" not in neg_sequences.columns:
                 neg_sequences["quality"] = "curated"
 
@@ -258,7 +269,7 @@ def compute_sample_weights(
     return weight_map
 
 
-class AntimicrobialActivityJudge(BaseJudge):
+class AntimicrobialActivityJudge(XGBoostJudge):
     """XGBoost-based classifier for antimicrobial activity prediction."""
 
     def __init__(
@@ -266,6 +277,7 @@ class AntimicrobialActivityJudge(BaseJudge):
         pos_threshold_ugml: float = DEFAULT_POS_THRESHOLD_UGML,
         neg_threshold_ugml: float = DEFAULT_NEG_THRESHOLD_UGML,
         gamma_synthetic: float = DEFAULT_GAMMA_SYNTHETIC,
+        decision_threshold: float = 0.5,
     ):
         """Initialize antimicrobial activity judge.
 
@@ -273,11 +285,12 @@ class AntimicrobialActivityJudge(BaseJudge):
             pos_threshold_ugml: Positive threshold in μg/mL
             neg_threshold_ugml: Negative threshold in μg/mL
             gamma_synthetic: Down-weight factor for synthetic negatives
+            decision_threshold: Probability threshold for binary classification
         """
+        super().__init__(decision_threshold=decision_threshold)
         self.pos_threshold_ugml = pos_threshold_ugml
         self.neg_threshold_ugml = neg_threshold_ugml
         self.gamma_synthetic = gamma_synthetic
-        self.model: Optional[xgb.Booster] = None
 
     def train(
         self,
@@ -287,18 +300,18 @@ class AntimicrobialActivityJudge(BaseJudge):
         y_val: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
         params_override: Optional[dict[str, Any]] = None,
-        num_boost_round: int = 1000,
-        early_stopping_rounds: int = 50,
+        num_boost_round: int = 2000,
+        early_stopping_rounds: int = 100,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Train XGBoost model with validation.
+        """Train XGBoost model with validation and sample weighting.
 
         Args:
             X_train: Training features (N_train, feature_dim)
             y_train: Training labels (N_train,)
             X_val: Validation features (N_val, feature_dim)
             y_val: Validation labels (N_val,)
-            sample_weight: Optional training sample weights (N_train,)
+            sample_weight: Training sample weights (N_train,)
             params_override: Optional XGBoost parameters to override defaults
             num_boost_round: Maximum number of boosting rounds
             early_stopping_rounds: Early stopping patience
@@ -307,17 +320,12 @@ class AntimicrobialActivityJudge(BaseJudge):
         Returns:
             Dictionary with 'model' (trained Booster) and 'evals_result' (training history)
         """
-        logger.info("Training XGBoost antimicrobial activity judge...")
+        logger.info(f"Training XGBoost {self.__class__.__name__}...")
 
         dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weight)
         dval = xgb.DMatrix(X_val, label=y_val)
 
-        # Hyperparameters should be configured via YAML/Optuna and passed in params_override.
-        # Provide only minimal required defaults here.
         params = {
-            "objective": "binary:logistic",
-            "eval_metric": "auc",
-            "random_state": 42,
             "verbosity": 1,
         }
         if params_override:
@@ -336,80 +344,7 @@ class AntimicrobialActivityJudge(BaseJudge):
 
         return {"model": self.model, "evals_result": evals_result}
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Predict probabilities for the positive (potent) class.
-
-        Args:
-            X: Feature matrix (N, feature_dim)
-
-        Returns:
-            Probability array (N,)
-        """
-        if self.model is None:
-            raise RuntimeError("Model not trained. Call train() first.")
-
-        dmat = xgb.DMatrix(X)
-        return self.model.predict(dmat)
-
-    def evaluate(
-        self, X: np.ndarray, y: np.ndarray, split_name: str = "Test"
-    ) -> tuple[float, np.ndarray, np.ndarray]:
-        """Evaluate model on a dataset.
-
-        Args:
-            X: Feature matrix (N, feature_dim)
-            y: True labels (N,)
-            split_name: Name of the split for logging
-
-        Returns:
-            Tuple of (auc_score, predicted_probabilities, predicted_labels)
-        """
-        logger.info(f"Evaluating antimicrobial activity judge on {split_name} set...")
-
-        y_pred_proba = self.predict_proba(X)
-        y_pred = (y_pred_proba > 0.5).astype(int)
-
-        auc_score = roc_auc_score(y, y_pred_proba)
-
-        logger.info(f"{split_name} AUC: {auc_score:.4f}")
-        logger.info(f"{split_name} Classification Report:")
-        print(
-            classification_report(
-                y, y_pred, target_names=["Not Potent", "Potent"], zero_division=0
-            )
-        )
-
-        logger.info(f"{split_name} Confusion Matrix:")
-        print(confusion_matrix(y, y_pred))
-
-        return auc_score, y_pred_proba, y_pred
-
-    def save(self, path: Path | str) -> None:
-        """Save model to disk.
-
-        Args:
-            path: File path to save the XGBoost model
-        """
-        if self.model is None:
-            raise RuntimeError("No model to save. Train the model first.")
-
-        path = Path(path)
-        self.model.save_model(path)
-        logger.info(f"Antimicrobial activity judge saved to {path}")
-
-    @classmethod
-    def load(cls, path: Path | str) -> AntimicrobialActivityJudge:
-        """Load model from disk.
-
-        Args:
-            path: File path to the saved XGBoost model
-
-        Returns:
-            Loaded AntimicrobialActivityJudge instance
-        """
-        judge = cls()
-        judge.model = xgb.Booster()
-        judge.model.load_model(str(path))
-        logger.info(f"Antimicrobial activity judge loaded from {path}")
-        return judge
+    def _get_target_names(self) -> list[str]:
+        """Get target class names for classification report."""
+        return ["Not Potent", "Potent"]
 

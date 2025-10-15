@@ -17,6 +17,16 @@ thresholds:
 optuna:
   trials: 20
   cv_folds: 5
+  search_space:
+    max_depth: [3, 8]
+    max_leaves: [16, 128]
+    learning_rate: [0.005, 0.05]
+    subsample: [0.7, 1.0]
+    colsample_bytree: [0.7, 1.0]
+    min_child_weight: [1.0, 10.0]
+    gamma: [0.0, 5.0]
+    reg_lambda: [1.0, 20.0]
+    scale_pos_weight: [0.3, 1.5]
 
 training:
   num_boost_round: 2000

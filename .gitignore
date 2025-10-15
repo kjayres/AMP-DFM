@@ -18,8 +18,9 @@ venv/
 checkpoints/
 
 # Large data files
-data/embeddings/*.npy
-data/embeddings/*.pkl
+data/embeddings/**/*.npy
+data/embeddings/**/*.pkl
+data/embeddings/esm2/
 data/dfm/tokenised_ampdfm_cond/
 data/dfm/tokenised_ampdfm_uncond/
 
