@@ -1,18 +1,18 @@
 ckpt: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
 out_dir: /rds/general/user/kja24/home/amp_dfm/outputs/peptides/ecoli
-run_tag: ecoli_hp4_111_2500
+run_name: ecoli_hp4_111_2000
 
-potency_variant: ecoli
+amp_variant: ecoli
 device: cuda:0
 
-n_samples: 2500
+n_samples: 2000
 n_batches: 10
-length: null
+seq_length: null
 len_min: 10
-len_max: 50
+len_max: 30
 
-# Importance weights for judges: potency, hemolysis, cytotox
-importance: "1,1,1"
+# Importance weights for judges: antimicrobial_activity, haemolysis, cytotoxicity
+importance: [1, 1, 1]
 
 # Guidance parameters
 homopolymer_gamma: 4.0

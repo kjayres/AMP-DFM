@@ -1,16 +1,16 @@
 ckpt: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
 out_dir: /rds/general/user/kja24/home/amp_dfm/outputs/peptides/saureus
-run_tag: saureus_hp4_111_2500
+run_name: saureus_hp4_111_2000
 
-potency_variant: saureus
+amp_variant: saureus
 device: cuda:0
 
-n_samples: 2500
+n_samples: 2000
 n_batches: 10
-length: null
+seq_length: null
 len_min: 10
 len_max: 30
 
-importance: "1,1,1"
+importance: [1, 1, 1]
 homopolymer_gamma: 4.0
 

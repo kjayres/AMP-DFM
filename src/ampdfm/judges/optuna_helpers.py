@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Centralised Optuna hyper-parameter tuning for XGBoost judge models.
-
-Provides search space and objective function for XGBoost judges.
-"""
+"""Optuna hyper-parameter tuning for XGBoost judges."""
 
 from __future__ import annotations
 
@@ -26,42 +23,25 @@ def get_xgboost_search_space(
     search_space_config: Optional[dict[str, Any]] = None,
     base_params: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    """Define XGBoost hyper-parameter search space from config.
-
-    Args:
-        trial: Optuna trial object
-        search_space_config: Dictionary mapping param names to their ranges
-        base_params: Base XGBoost parameters from YAML (objective, eval_metric, random_state, etc.)
-
-    Returns:
-        Dictionary of XGBoost parameters
-    """
-    if not search_space_config:
-        search_space_config = {}
-
-    # Start with base params from YAML, then add tuned params
+    """Build XGBoost parameter dict from Optuna trial and base params."""
+    search_space_config = search_space_config or {}
     params = dict(base_params) if base_params else {}
 
-    # Integer parameters
     for param in ['max_depth', 'max_leaves']:
         if param in search_space_config:
             low, high = search_space_config[param]
             params[param] = trial.suggest_int(param, low, high)
 
-    # Float parameters (log scale)
     if 'learning_rate' in search_space_config:
         low, high = search_space_config['learning_rate']
         params['learning_rate'] = trial.suggest_float('learning_rate', low, high, log=True)
 
-    # Float parameters (linear scale)
     for param in ['subsample', 'colsample_bytree', 'min_child_weight', 'gamma', 'reg_lambda', 'scale_pos_weight']:
         if param in search_space_config:
             low, high = search_space_config[param]
             params[param] = trial.suggest_float(param, low, high)
 
     return params
-
-
 
 
 def tune_xgboost(
@@ -77,34 +57,16 @@ def tune_xgboost(
     num_boost_round: int = 2000,
     early_stopping_rounds: int = 100,
 ) -> dict[str, Any]:
-    """Run Optuna tuning for XGBoost model.
-
-    Args:
-        X_dev: Development set features (train+val combined)
-        y_dev: Development set labels
-        groups_dev: Cluster IDs for GroupKFold
-        sample_weight_dev: Optional sample weights for training
-        val_weight_dev: Optional sample weights for validation
-        n_trials: Number of Optuna trials
-        cv_folds: Number of cross-validation folds
-        search_space_config: Dictionary mapping param names to [low, high] ranges
-        base_params: Base XGBoost parameters from YAML (objective, eval_metric, random_state, etc.)
-        num_boost_round: Max boosting rounds used inside tuning folds
-        early_stopping_rounds: Early stopping patience used during tuning
-
-    Returns:
-        Best parameters dictionary
-    """
+    """Run Optuna tuning for XGBoost. Returns best parameters."""
     if optuna is None:
-        logger.error("Optuna not installed – cannot run tuning.")
+        logger.error("Optuna not installed")
         return {}
 
-    logger.info(f"Running {n_trials} Optuna trials for XGBoost tuning...")
-
+    logger.info(f"Running {n_trials} Optuna trials...")
     gkf = GroupKFold(n_splits=cv_folds)
 
     def objective(trial):
-        params = get_xgboost_search_space(trial, search_space_config=search_space_config, base_params=base_params)
+        params = get_xgboost_search_space(trial, search_space_config, base_params)
         aucs = []
 
         for tr_idx, va_idx in gkf.split(X_dev, groups=groups_dev):
@@ -128,7 +90,7 @@ def tune_xgboost(
     study = optuna.create_study(direction='maximize')
     study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
 
-    logger.info(f"Best XGBoost params: {study.best_params}")
+    logger.info(f"Best params: {study.best_params}")
     return study.best_params
 
 

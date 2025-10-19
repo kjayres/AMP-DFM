@@ -9,18 +9,7 @@ from ampdfm.dfm.models.peptide_models import CNNModelPep
 
 
 def load_solver(checkpoint_path, vocab_size, device, embed_dim=1024, hidden_dim=512):
-    """Load a trained CNNModelPep checkpoint and wrap it in a MixtureDiscreteEulerSolver.
-    
-    Args:
-        checkpoint_path: Path to the trained model checkpoint.
-        vocab_size: Vocabulary size (typically 24 for ampdfm).
-        device: Device to load the model on (e.g., 'cuda:0' or 'cpu').
-        embed_dim: Token embedding dimension (default 1024 for unconditional ampdfm).
-        hidden_dim: Hidden channel dimension (default 512 for unconditional ampdfm).
-    
-    Returns:
-        MixtureDiscreteEulerSolver: Configured solver for discrete sampling.
-    """
+    """Load trained CNNModelPep and wrap in MixtureDiscreteEulerSolver."""
     probability_denoiser = CNNModelPep(alphabet_size=vocab_size, embed_dim=embed_dim, hidden_dim=hidden_dim).to(device)
     probability_denoiser.load_state_dict(torch.load(checkpoint_path, map_location=device))
     probability_denoiser.eval()

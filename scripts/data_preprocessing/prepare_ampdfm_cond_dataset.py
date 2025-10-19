@@ -57,10 +57,10 @@ AA_TO_IDX: Dict[str, int] = {aa: i + 4 for i, aa in enumerate(AA_ORDER)}  # 4–
 SPECIAL_TOKENS = {"<cls>": 0, "<pad>": 1, "<eos>": 2, "<unk>": 3}
 
 # -----------------------------------------------------------------------------
-# Helpers to derive AMP label + species-specific potency bits
+# Helpers to derive AMP label + species-specific antimicrobial activity bits
 # -----------------------------------------------------------------------------
 
-# Activity potency thresholds (identical to potency_judge pipeline)
+# Activity thresholds (identical to antimicrobial_activity_judge pipeline)
 POS_THRESHOLD_UGML = 32
 NEG_THRESHOLD_UGML = 128
 
@@ -79,18 +79,18 @@ def label_activity_rows(df: pd.DataFrame) -> pd.DataFrame:
     df["pos_thresh_um"] = _convert_ugml_to_um(POS_THRESHOLD_UGML, df["mw_da"])
     df["neg_thresh_um"] = _convert_ugml_to_um(NEG_THRESHOLD_UGML, df["mw_da"])
 
-    df["is_potent"] = df["linear_value_um"] <= df["pos_thresh_um"]
-    df["is_not_potent"] = df["linear_value_um"] >= df["neg_thresh_um"]
+    df["is_active"] = df["linear_value_um"] <= df["pos_thresh_um"]
+    df["is_not_active"] = df["linear_value_um"] >= df["neg_thresh_um"]
 
     agg = (
-        df.groupby("sequence")[["is_potent", "is_not_potent", "split"]]
-        .agg({"is_potent": "any", "is_not_potent": "all", "split": "first"})
+        df.groupby("sequence")[["is_active", "is_not_active", "split"]]
+        .agg({"is_active": "any", "is_not_active": "all", "split": "first"})
         .reset_index()
     )
 
     agg["is_amp"] = None
-    agg.loc[agg["is_potent"], "is_amp"] = 1
-    agg.loc[agg["is_not_potent"], "is_amp"] = 0
+    agg.loc[agg["is_active"], "is_amp"] = 1
+    agg.loc[agg["is_not_active"], "is_amp"] = 0
     labelled = agg.dropna(subset=["is_amp"]).copy()
     labelled["is_amp"] = labelled["is_amp"].astype(int)
     return labelled
@@ -156,21 +156,21 @@ def _derive_cond_vec(is_amp: int, organisms: List[str]) -> List[int]:
     cond[3] = int(any(("s. aureus" in o) or ("staphylococcus aureus" in o) for o in orgs_l))  # SA
     return cond
 
-# Map sequences to organism lists (only for potent rows)
+# Map sequences to organism lists (only for active rows)
 _tmp = activity_rows.copy()
 _tmp["linear_value_um"] = 10 ** _tmp["value"]
 _tmp["pos_thresh_um"] = _convert_ugml_to_um(POS_THRESHOLD_UGML, _tmp["mw_da"])
-_tmp["is_potent"] = _tmp["linear_value_um"] <= _tmp["pos_thresh_um"]
+_tmp["is_active"] = _tmp["linear_value_um"] <= _tmp["pos_thresh_um"]
 
-potent_orgs_map = (
-    _tmp[_tmp["is_potent"]]
+active_orgs_map = (
+    _tmp[_tmp["is_active"]]
     .groupby("sequence")["organism"]
     .apply(lambda s: s.dropna().astype(str).unique().tolist())
     .to_dict()
 )
 
 df["cond_vec"] = [
-    _derive_cond_vec(is_amp, potent_orgs_map.get(seq, []))
+    _derive_cond_vec(is_amp, active_orgs_map.get(seq, []))
     for seq, is_amp in zip(df["sequence"], df["is_amp"])
 ]
 

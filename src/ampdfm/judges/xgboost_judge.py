@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""XGBoost judge base class with shared training/inference logic.
-
-Provides common XGBoost training, prediction, evaluation, and persistence
-methods for all task-specific judges.
-"""
+"""XGBoost judge base class with shared training/inference logic."""
 
 from __future__ import annotations
 
@@ -21,14 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class XGBoostJudge(BaseJudge):
-    """Base class for XGBoost-based judges with shared training/inference logic."""
+    """Base class for XGBoost-based judges."""
 
     def __init__(self, decision_threshold: float = 0.5):
-        """Initialize XGBoost judge.
-
-        Args:
-            decision_threshold: Probability threshold for binary classification
-        """
         self.decision_threshold = decision_threshold
         self.model: Optional[xgb.Booster] = None
 
@@ -44,35 +35,12 @@ class XGBoostJudge(BaseJudge):
         early_stopping_rounds: int = 100,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Train XGBoost model with validation.
-
-        Args:
-            X_train: Training features (N_train, feature_dim)
-            y_train: Training labels (N_train,)
-            X_val: Validation features (N_val, feature_dim)
-            y_val: Validation labels (N_val,)
-            sample_weight: Optional training sample weights (N_train,) - only used by subclasses
-            params_override: Optional XGBoost parameters to override defaults
-            num_boost_round: Maximum number of boosting rounds
-            early_stopping_rounds: Early stopping patience
-            **kwargs: Additional arguments (ignored)
-
-        Returns:
-            Dictionary with 'model' (trained Booster) and 'evals_result' (training history)
-        """
         logger.info(f"Training XGBoost {self.__class__.__name__}...")
         
-        # Use sample weights for training if provided
-        if sample_weight is not None:
-            dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weight)
-        else:
-            dtrain = xgb.DMatrix(X_train, label=y_train)
+        dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weight)
         dval = xgb.DMatrix(X_val, label=y_val)
 
-        # Minimal defaults; hyperparameters should come from YAML/Optuna via params_override
-        params = {
-            "verbosity": 1,
-        }
+        params = {"verbosity": 1}
         if params_override:
             params.update(params_override)
 
@@ -90,89 +58,42 @@ class XGBoostJudge(BaseJudge):
         return {"model": self.model, "evals_result": evals_result}
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Predict probabilities for the positive class.
-
-        Args:
-            X: Feature matrix (N, feature_dim)
-
-        Returns:
-            Probability array (N,)
-        """
         if self.model is None:
             raise RuntimeError("Model not trained. Call train() first.")
-
-        dmat = xgb.DMatrix(X)
-        return self.model.predict(dmat)
+        return self.model.predict(xgb.DMatrix(X))
 
     def evaluate(
         self, X: np.ndarray, y: np.ndarray, split_name: str = "Test"
     ) -> tuple[float, np.ndarray, np.ndarray]:
-        """Evaluate model on a dataset.
-
-        Args:
-            X: Feature matrix (N, feature_dim)
-            y: True labels (N,)
-            split_name: Name of the split for logging
-
-        Returns:
-            Tuple of (auc_score, predicted_probabilities, predicted_labels)
-        """
-        logger.info(f"Evaluating {self.__class__.__name__} on {split_name} set...")
-
         y_pred_proba = self.predict_proba(X)
         y_pred = (y_pred_proba > self.decision_threshold).astype(int)
-
         auc_score = roc_auc_score(y, y_pred_proba)
 
         logger.info(f"{split_name} AUC: {auc_score:.4f}")
         logger.info(f"{split_name} Classification Report:")
-        target_names = self._get_target_names()
         logger.info(
             "\n%s",
             classification_report(
-                y, y_pred, target_names=target_names, zero_division=0
+                y, y_pred, target_names=self._get_target_names(), zero_division=0
             ),
         )
-
         logger.info(f"{split_name} Confusion Matrix:")
         logger.info("\n%s", confusion_matrix(y, y_pred))
 
         return auc_score, y_pred_proba, y_pred
 
     def _get_target_names(self) -> list[str]:
-        """Get target class names for classification report.
-
-        Override in subclasses for task-specific naming.
-
-        Returns:
-            List of [negative_class_name, positive_class_name]
-        """
         return ["Negative", "Positive"]
 
     def save(self, path: Path | str) -> None:
-        """Save model to disk.
-
-        Args:
-            path: File path to save the XGBoost model
-        """
         if self.model is None:
             raise RuntimeError("No model to save. Train the model first.")
-
         path = Path(path)
         self.model.save_model(str(path))
         logger.info(f"{self.__class__.__name__} saved to {path}")
 
     @classmethod
     def load(cls, path: Path | str, **kwargs: Any) -> XGBoostJudge:
-        """Load model from disk.
-
-        Args:
-            path: File path to the saved XGBoost model
-            **kwargs: Additional arguments to pass to constructor
-
-        Returns:
-            Loaded judge instance
-        """
         judge = cls(**kwargs)
         judge.model = xgb.Booster()
         judge.model.load_model(str(path))

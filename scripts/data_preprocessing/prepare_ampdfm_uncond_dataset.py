@@ -37,8 +37,8 @@ def _convert_ugml_to_um(ugml: float, mw_da: float) -> float:
 def label_activity_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Return sequences with definitive AMP/non-AMP labels.
 
-    We keep only rows that are *clearly potent* (any MIC ≤32 µg/mL) or *clearly
-    non-potent* (all MIC ≥128 µg/mL); borderline measurements are discarded.
+    We keep only rows that are *clearly active* (any MIC ≤32 µg/mL) or *clearly
+    non-active* (all MIC ≥128 µg/mL); borderline measurements are discarded.
     """
     df = df.copy()
 
@@ -46,16 +46,16 @@ def label_activity_rows(df: pd.DataFrame) -> pd.DataFrame:
     df["pos_thresh_um"] = _convert_ugml_to_um(POS_THRESHOLD_UGML, df["mw_da"])
     df["neg_thresh_um"] = _convert_ugml_to_um(NEG_THRESHOLD_UGML, df["mw_da"])
 
-    df["is_potent"] = df["linear_value_um"] <= df["pos_thresh_um"]
-    df["is_not_potent"] = df["linear_value_um"] >= df["neg_thresh_um"]
+    df["is_active"] = df["linear_value_um"] <= df["pos_thresh_um"]
+    df["is_not_active"] = df["linear_value_um"] >= df["neg_thresh_um"]
 
     agg = (
-        df.groupby("sequence")[["is_potent", "is_not_potent", "split"]]
-        .agg({"is_potent": "any", "is_not_potent": "all", "split": "first"})
+        df.groupby("sequence")[["is_active", "is_not_active", "split"]]
+        .agg({"is_active": "any", "is_not_active": "all", "split": "first"})
         .reset_index()
     )
 
-    keep_mask = agg["is_potent"] | agg["is_not_potent"]
+    keep_mask = agg["is_active"] | agg["is_not_active"]
     return agg.loc[keep_mask, ["sequence", "split"]]
 
 # ---------------------------------------------------------------------------
@@ -107,7 +107,7 @@ print("Will save to:", OUT_ROOT)
 
 raw_activity = pd.read_csv(ACTIVITY_CSV)
 # ---------------------------------------------------------------------------
-# Keep EVERY potent AMP row.  Some rows in the source CSV lack an explicit
+# Keep EVERY active AMP row.  Some rows in the source CSV lack an explicit
 # split; assign them to "train" so they are not lost when we write Arrow
 # datasets by split.
 # ---------------------------------------------------------------------------

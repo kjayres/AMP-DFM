@@ -5,41 +5,27 @@ from torch import nn
 from typing import List, Dict, Any
 
 def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
-    """Custom collator that flattens the 12-sequence groups written by
-    ``prepare_ampdfm_dataset.py``.  After collation each field has the shape
-    expected by the models: *all sequences in the batch* are stacked along the
-    first dimension.
-
-    Returned shapes
-    ----------------
-    input_ids      (B×G, L)
-    attention_mask (B×G, L)
-    cond_vec       (B×G, 4)
-    where *G* is the group size used during dataset packing (12 for PepDFM).
+    """Flatten grouped sequences for batch processing.
+    
+    Returns (B×G, L) tensors where G=12 is the group size.
     """
-
     flat_input_ids = []
     flat_attention = []
     flat_cond_vec  = []
 
-    for item in batch:  # each *item* is one Arrow record containing 12 seqs
+    for item in batch:
         flat_input_ids.extend(item['input_ids'])
         flat_attention.extend(item['attention_mask'])
 
-        # ``cond_vec`` is per-sequence; fall back to zeros if missing.
         if 'cond_vec' in item:
             flat_cond_vec.extend(item['cond_vec'])
         else:
             flat_cond_vec.extend([[0, 0, 0, 0]] * len(item['input_ids']))
 
-    input_ids = torch.tensor(flat_input_ids)
-    attention_mask = torch.tensor(flat_attention)
-    cond_vec = torch.tensor(flat_cond_vec, dtype=torch.float32)
-
     return {
-        'input_ids': input_ids,
-        'attention_mask': attention_mask,
-        'cond_vec': cond_vec,
+        'input_ids': torch.tensor(flat_input_ids),
+        'attention_mask': torch.tensor(flat_attention),
+        'cond_vec': torch.tensor(flat_cond_vec, dtype=torch.float32),
     }
 
 class CustomDataModule(nn.Module):
