@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared utilities for judge training."""
+"""Shared utilities for classifier training."""
 
 from __future__ import annotations
 

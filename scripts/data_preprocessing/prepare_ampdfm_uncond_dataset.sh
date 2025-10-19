@@ -3,6 +3,8 @@
 #PBS -l select=1:ncpus=2:mem=8gb
 #PBS -N prep_ampdfm_uncond
 #PBS -j oe
+#PBS -o /rds/general/user/kja24/home/amp_dfm/scripts/data_preprocessing/
+#PBS -e /rds/general/user/kja24/home/amp_dfm/scripts/data_preprocessing/
 
 cd /rds/general/user/kja24/home
 

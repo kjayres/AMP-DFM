@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified judge training script for AMP-DFM judges."""
+"""Unified classifier training script for AMP-DFM classifiers."""
 
 from __future__ import annotations
 
@@ -16,10 +16,10 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from ampdfm.judges import (
-    AntimicrobialActivityJudge,
-    CytotoxicityJudge,
-    HaemolysisJudge,
+from ampdfm.classifiers import (
+    AntimicrobialActivityClassifier,
+    CytotoxicityClassifier,
+    HaemolysisClassifier,
     compute_sample_weights,
     create_train_val_test_splits,
     label_antimicrobial_activity_sequences,
@@ -42,7 +42,7 @@ def load_config(config_path: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train AMP-DFM judge models")
+    parser = argparse.ArgumentParser(description="Train AMP-DFM classifier models")
     parser.add_argument("--config", type=str, required=True, help="YAML config file")
     args = parser.parse_args()
 
@@ -109,7 +109,7 @@ def main():
 
     if task == 'antimicrobial_activity':
         clustered = data_dir / 'clustered'
-        activity_df = pd.read_csv(clustered / 'activities_with_splits.csv')
+        activity_df = pd.read_csv(clustered / 'activities_with_splits.csv', low_memory=False)
         negatives_dfs = []
         for neg_file in negatives:
             df_neg = pd.read_csv(clustered / neg_file)
@@ -159,17 +159,6 @@ def main():
     dev_sequences = train_sequences + val_sequences
     
     assert X_dev.shape[0] == y_dev.shape[0] == clusters_dev.shape[0]
-    
-    if task == 'antimicrobial_activity':
-        w_map_dev = compute_sample_weights(
-            pd.concat([df_train, df_val], ignore_index=True), gamma_synthetic
-        )
-        w_dev = w_map_dev.loc[dev_sequences].to_numpy()
-        sample_weight_dev = w_dev
-        val_weight_dev = w_dev
-    else:
-        sample_weight_dev = None
-        val_weight_dev = None
 
     if not isinstance(xgboost_params_cfg, dict):
         xgboost_params_cfg = {}
@@ -178,10 +167,8 @@ def main():
     xgboost_params_cfg['seed'] = seed_cfg
     xgboost_params_cfg['random_state'] = random_state_cfg
 
-    best_params = tune_xgboost(
-        X_dev, y_dev, clusters_dev,
-        sample_weight_dev=sample_weight_dev,
-        val_weight_dev=val_weight_dev,
+    # Prepare tuning kwargs and enable leakage-free per-fold weighting for antimicrobial activity
+    tune_kwargs = dict(
         n_trials=n_trials,
         cv_folds=cv_folds,
         search_space_config=search_space,
@@ -189,16 +176,29 @@ def main():
         num_boost_round=num_boost_round_cfg,
         early_stopping_rounds=early_stopping_rounds_cfg,
     )
+
+    if task == 'antimicrobial_activity':
+        dev_df = pd.concat([df_train, df_val], ignore_index=True)
+        tune_kwargs.update({
+            'dev_df': dev_df,
+            'dev_sequences': dev_sequences,
+            'gamma_synthetic': gamma_synthetic,
+        })
+
+    best_params = tune_xgboost(
+        X_dev, y_dev, clusters_dev,
+        **tune_kwargs,
+    )
     best_params = {**xgboost_params_cfg, **(best_params or {})}
     
     if task == 'antimicrobial_activity':
-        judge = AntimicrobialActivityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else AntimicrobialActivityJudge()
+        classifier = AntimicrobialActivityClassifier(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else AntimicrobialActivityClassifier()
     elif task == 'haemolysis':
-        judge = HaemolysisJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else HaemolysisJudge()
+        classifier = HaemolysisClassifier(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else HaemolysisClassifier()
     else:
-        judge = CytotoxicityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else CytotoxicityJudge()
+        classifier = CytotoxicityClassifier(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else CytotoxicityClassifier()
 
-    result = judge.train(
+    result = classifier.train(
         X_train, y_train, X_val, y_val,
         sample_weight=sample_weight,
         params_override=best_params,
@@ -206,9 +206,9 @@ def main():
         early_stopping_rounds=early_stopping_rounds_cfg,
     )
 
-    train_auc, train_proba, train_pred = judge.evaluate(X_train, y_train, "Train")
-    val_auc, val_proba, val_pred = judge.evaluate(X_val, y_val, "Val")
-    test_auc, test_proba, test_pred = judge.evaluate(X_test, y_test, "Test")
+    train_auc, train_proba, train_pred = classifier.evaluate(X_train, y_train, "Train")
+    val_auc, val_proba, val_pred = classifier.evaluate(X_val, y_val, "Val")
+    test_auc, test_proba, test_pred = classifier.evaluate(X_test, y_test, "Test")
 
     test_results = pd.DataFrame({
         'sequence': test_sequences,
@@ -252,32 +252,32 @@ def main():
             X_val_cv, y_val_cv, _ = prepare_features(va_rows, embeddings, seq_index)
 
             if task == 'antimicrobial_activity':
-                judge_cv = AntimicrobialActivityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else AntimicrobialActivityJudge()
+                classifier_cv = AntimicrobialActivityClassifier(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else AntimicrobialActivityClassifier()
             elif task == 'haemolysis':
-                judge_cv = HaemolysisJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else HaemolysisJudge()
+                classifier_cv = HaemolysisClassifier(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else HaemolysisClassifier()
             else:
-                judge_cv = CytotoxicityJudge(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else CytotoxicityJudge()
+                classifier_cv = CytotoxicityClassifier(decision_threshold=decision_threshold_cfg) if decision_threshold_cfg else CytotoxicityClassifier()
 
             w_tr_cv = None
             if task == 'antimicrobial_activity':
                 w_map_cv = compute_sample_weights(tr_rows, gamma_synthetic)
                 w_tr_cv = w_map_cv.loc[tr_seqs_cv].to_numpy()
 
-            judge_cv.train(
+            classifier_cv.train(
                 X_tr_cv, y_tr_cv, X_val_cv, y_val_cv,
                 sample_weight=w_tr_cv,
                 params_override=best_params,
                 num_boost_round=num_boost_round_cfg,
                 early_stopping_rounds=early_stopping_rounds_cfg,
             )
-            auc_cv, _, _ = judge_cv.evaluate(X_val_cv, y_val_cv, split_name=f"CV{fold}")
+            auc_cv, _, _ = classifier_cv.evaluate(X_val_cv, y_val_cv, split_name=f"CV{fold}")
             aucs.append(float(auc_cv))
 
         pd.DataFrame({'fold': np.arange(1, len(aucs)+1), 'auc': aucs}).to_csv(
             fold_dir / 'cv_metrics.csv', index=False
         )
 
-    judge.save(checkpoint_path / 'model.json')
+    classifier.save(checkpoint_path / 'model.json')
 
     metadata = {
         'task': task,

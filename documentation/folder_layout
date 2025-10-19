@@ -30,7 +30,7 @@ amp_dfm/
 │       │   ├── flow_matching/
 │       │   ├── models/                  # CNNModel, CNNModelPep
 │       │   └── guidance/                # Pure Python guidance logic
-│       ├── judges/                      # Judge classes
+│       ├── classifiers/                 # Classifier classes
 │       │   ├── __init__.py
 │       │   ├── base.py
 │       │   ├── antimicrobial_activity.py
@@ -51,7 +51,7 @@ amp_dfm/
 │
 ├── scripts/                             # ✅ Already organized
 │   ├── hpc_cluster/                     # ✅ Good
-│   ├── train_judges/                    # ✅ Good
+│   ├── train_classifiers/               # ✅ Good
 │   ├── data_preprocessing/              # ✅ Good (or rename to data_prep)
 │   ├── model_validation/                # ✅ Good (or merge with analysis)
 │   ├── visualisations/                  # ✅ Good (or rename to visualization)
@@ -64,11 +64,11 @@ amp_dfm/
 │
 ├── checkpoints/                         # ✅ Perfect structure
 │   ├── dfm/
-│   └── judges/
+│   └── classifiers/
 │
 ├── data/                                # ✅ Good structure
 │   ├── dfm/
-│   ├── judges/
+│   ├── classifiers/
 │   ├── filtered/
 │   └── embeddings/
 │

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ampdfm_uncond_sample.py
 
-Sample peptides from a trained unconditional AMP-DFM model and score with judges.
+Sample peptides from a trained unconditional AMP-DFM model and score with classifiers.
 
 Usage:
     python ampdfm_uncond_sample.py --config configs/flow_matching/ampdfm_uncond_sample.yaml
@@ -22,7 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from ampdfm.dfm.models.model_utils import load_solver
 from ampdfm.utils.tokenization import detokenise, CLS_IDX, EOS_IDX, AA_START_IDX
-from ampdfm.judges.inference import TorchBoosterAdapter
+from ampdfm.classifiers.inference import TorchBoosterAdapter
 from ampdfm.utils.esm_embed import get_esm_embeddings
 
 parser = argparse.ArgumentParser(description="Sample from unconditional AMP-DFM")
@@ -56,8 +56,8 @@ Path(scores_path).parent.mkdir(parents=True, exist_ok=True)
 
 solver = load_solver(ckpt_path, vocab_size, device)
 
-def _resolve_judge_paths(task: str, variant: str = None):
-    base = PROJECT_ROOT / "checkpoints" / "judges"
+def _resolve_classifier_paths(task: str, variant: str = None):
+    base = PROJECT_ROOT / "checkpoints" / "classifiers"
     if task == "antimicrobial_activity":
         org_folder = (variant or "generic").replace(" ", "_").lower()
         base = base / task / org_folder
@@ -66,14 +66,14 @@ def _resolve_judge_paths(task: str, variant: str = None):
     model_path = base / "model.json"
     meta_path = base / "metadata.pkl"
     if not model_path.exists():
-        raise FileNotFoundError(f"Judge model not found: {model_path}")
+        raise FileNotFoundError(f"Classifier model not found: {model_path}")
     if not meta_path.exists():
-        raise FileNotFoundError(f"Judge metadata not found: {meta_path}")
+        raise FileNotFoundError(f"Classifier metadata not found: {meta_path}")
     return model_path, meta_path
 
-amp_model, _ = _resolve_judge_paths("antimicrobial_activity", amp_variant)
-hml_model, _ = _resolve_judge_paths("haemolysis")
-cyt_model, _ = _resolve_judge_paths("cytotoxicity")
+amp_model, _ = _resolve_classifier_paths("antimicrobial_activity", amp_variant)
+hml_model, _ = _resolve_classifier_paths("haemolysis")
+cyt_model, _ = _resolve_classifier_paths("cytotoxicity")
 
 antimicrobial_activity_j = TorchBoosterAdapter(amp_model, device=device)
 haemolysis_j = TorchBoosterAdapter(hml_model, device=device)

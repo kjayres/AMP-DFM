@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Base class for AMP judges."""
+"""Base class for AMP classifiers."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 
 
-class BaseJudge(ABC):
+class BaseClassifier(ABC):
     """Abstract base for peptide property prediction models."""
 
     @abstractmethod
@@ -44,7 +44,7 @@ class BaseJudge(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, path: Path | str) -> BaseJudge:
+    def load(cls, path: Path | str) -> BaseClassifier:
         """Load model from disk."""
         pass
 

@@ -1,14 +1,14 @@
-# Configuration for antimicrobial activity judge (XGBoost, P. aeruginosa only)
+# Configuration for antimicrobial activity classifier (XGBoost, all organisms)
 
 task: antimicrobial_activity
 
 # Data paths
 data_dir: /rds/general/user/kja24/home/amp_dfm/data
-checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/judges
-output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/judges
+checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/classifiers
+output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/classifiers
 
 # Task-specific parameters
-organism: "Pseudomonas aeruginosa"
+organism: null  # null for all organisms, or e.g. "Staphylococcus aureus" for species-specific
 
 thresholds:
   pos_threshold_ugml: 32
@@ -16,7 +16,7 @@ thresholds:
   decision_threshold: 0.5
 
 
-gamma_synthetic: 0.5
+gamma_synthetic: 0.5  # Down-weight synthetic negatives
 
 # Optuna hyper-parameter tuning
 optuna:
@@ -32,6 +32,7 @@ optuna:
     gamma: [0.0, 5.0]
     reg_lambda: [1.0, 10.0]
 
+# Training loop parameters
 training:
   num_boost_round: 2000
   early_stopping_rounds: 100
@@ -39,7 +40,10 @@ training:
 seed: 42
 xgboost_params:
   random_state: 42
+  tree_method: hist
+  grow_policy: lossguide
 
+# Evaluation settings
 evaluation:
   cv_folds: 5
 

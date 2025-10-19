@@ -1,11 +1,11 @@
-# Configuration for antimicrobial activity judge (XGBoost, E. coli only)
+# Configuration for antimicrobial activity classifier (XGBoost, E. coli only)
 
 task: antimicrobial_activity
 
 # Data paths
 data_dir: /rds/general/user/kja24/home/amp_dfm/data
-checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/judges
-output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/judges
+checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/classifiers
+output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/classifiers
 
 # Task-specific parameters
 organism: "Escherichia coli"

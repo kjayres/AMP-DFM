@@ -60,7 +60,7 @@ SPECIAL_TOKENS = {"<cls>": 0, "<pad>": 1, "<eos>": 2, "<unk>": 3}
 # Helpers to derive AMP label + species-specific antimicrobial activity bits
 # -----------------------------------------------------------------------------
 
-# Activity thresholds (identical to antimicrobial_activity_judge pipeline)
+# Activity thresholds (identical to antimicrobial_activity classifier pipeline)
 POS_THRESHOLD_UGML = 32
 NEG_THRESHOLD_UGML = 128
 

@@ -11,7 +11,7 @@ seq_length: null
 len_min: 10
 len_max: 30
 
-# Importance weights for judges: antimicrobial_activity, haemolysis, cytotoxicity
+# Importance weights for classifiers: antimicrobial_activity, haemolysis, cytotoxicity
 importance: [1, 1, 1]
 
 # Guidance parameters

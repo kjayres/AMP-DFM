@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Antimicrobial activity judge for peptide antimicrobial activity prediction."""
+"""Antimicrobial activity classifier for peptide antimicrobial activity prediction."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from .xgboost_judge import XGBoostJudge
+from .xgboost_classifier import XGBoostClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -105,11 +105,6 @@ def label_antimicrobial_activity_sequences(
             labeled_sequences = pd.concat([labeled_sequences, neg_seqs], ignore_index=True)
             logger.info(f"Added {len(labeled_sequences) - before} negatives")
 
-    weight_map = compute_sample_weights(labeled_sequences, gamma_synthetic)
-    labeled_sequences = labeled_sequences.merge(
-        weight_map, left_on="sequence", right_index=True, how="left"
-    )
-
     return labeled_sequences
 
 
@@ -147,7 +142,7 @@ def compute_sample_weights(
     return weight_map
 
 
-class AntimicrobialActivityJudge(XGBoostJudge):
+class AntimicrobialActivityClassifier(XGBoostClassifier):
     """XGBoost classifier for antimicrobial activity."""
 
     def __init__(

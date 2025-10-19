@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inference helpers for XGBoost judges."""
+"""Inference helpers for XGBoost classifiers."""
 
 from __future__ import annotations
 

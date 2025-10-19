@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cytotoxicity judge for cell-line toxicity prediction."""
+"""Cytotoxicity classifier for cell-line toxicity prediction."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 
 import pandas as pd
 
-from .xgboost_judge import XGBoostJudge
+from .xgboost_classifier import XGBoostClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def label_cytotoxicity_sequences(
     return labelled_df
 
 
-class CytotoxicityJudge(XGBoostJudge):
+class CytotoxicityClassifier(XGBoostClassifier):
     """XGBoost classifier for cytotoxicity prediction."""
 
     def __init__(
