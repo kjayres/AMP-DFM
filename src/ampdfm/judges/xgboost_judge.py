@@ -61,10 +61,12 @@ class XGBoostJudge(BaseJudge):
             Dictionary with 'model' (trained Booster) and 'evals_result' (training history)
         """
         logger.info(f"Training XGBoost {self.__class__.__name__}...")
-
-        # Note: sample_weight is accepted but not used by default
-        # Subclasses can override this method to use sample_weight
-        dtrain = xgb.DMatrix(X_train, label=y_train)
+        
+        # Use sample weights for training if provided
+        if sample_weight is not None:
+            dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weight)
+        else:
+            dtrain = xgb.DMatrix(X_train, label=y_train)
         dval = xgb.DMatrix(X_val, label=y_val)
 
         # Minimal defaults; hyperparameters should come from YAML/Optuna via params_override

@@ -81,7 +81,7 @@ def prepare_features(
 
     if not feats:
         logger.error("No sequences with embeddings found – aborting.")
-        sys.exit(1)
+        raise ValueError("No sequences with embeddings found")
 
     X = np.asarray(feats)
     y = np.asarray(labels)

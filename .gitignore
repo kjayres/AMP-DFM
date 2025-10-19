@@ -21,14 +21,6 @@ checkpoints/
 data/embeddings/**/*.npy
 data/embeddings/**/*.pkl
 data/embeddings/esm2/
-data/dfm/tokenised_ampdfm_cond/
-data/dfm/tokenised_ampdfm_uncond/
-
-# Generated outputs
-outputs/peptides/
-outputs/judges/*/predictions/
-outputs/judges/*/models/
-outputs/ablations/*/predictions/
 
 # HPC job outputs
 *.o[0-9]*
@@ -50,4 +42,11 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+
+# Project-specific ignores
+/scripts/train_dfm/ampdfm_uncond_vs_cond.py
+/scripts/train_dfm/ampdfm_uncond_vs_cond.sh
+/outputs/model_comparison/
+/scripts/visualisations/
+/src/ampdfm/evaluation/
 

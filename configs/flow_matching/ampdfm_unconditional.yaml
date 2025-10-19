@@ -1,0 +1,19 @@
+data:
+  train_path: /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_uncond/train
+  val_path:   /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_uncond/val
+
+output:
+  ckpt_out: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
+
+training:
+  lr: 1.0e-4
+  epochs: 200
+  warmup_epochs: 20
+  batch_size: 512
+  epsilon: 1.0e-3
+  seed: 42
+
+scheduler:
+  polynomial_n: 2.0
+
+

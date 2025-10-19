@@ -1,7 +1,6 @@
 # Configuration for cytotoxicity judge (XGBoost)
 
 task: cytotoxicity
-model: xgboost
 
 # Data paths
 data_dir: /rds/general/user/kja24/home/amp_dfm/data
@@ -32,9 +31,8 @@ training:
   num_boost_round: 2000
   early_stopping_rounds: 100
 
+seed: 42
 xgboost_params:
-  objective: binary:logistic
-  eval_metric: auc
   random_state: 42
 
 evaluation:

@@ -1,7 +1,6 @@
 # Configuration for antimicrobial activity judge (XGBoost, P. aeruginosa only)
 
 task: antimicrobial_activity
-model: xgboost
 
 # Data paths
 data_dir: /rds/general/user/kja24/home/amp_dfm/data
@@ -16,9 +15,6 @@ thresholds:
   neg_threshold_ugml: 128
   decision_threshold: 0.5
 
-negatives:
-  - negatives_swissprot_with_splits.csv
-  - negatives_synth_with_splits.csv
 
 gamma_synthetic: 0.5
 
@@ -40,9 +36,8 @@ training:
   num_boost_round: 2000
   early_stopping_rounds: 100
 
+seed: 42
 xgboost_params:
-  objective: binary:logistic
-  eval_metric: auc
   random_state: 42
 
 evaluation:

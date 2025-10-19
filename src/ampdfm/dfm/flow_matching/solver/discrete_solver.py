@@ -13,10 +13,9 @@ from torch import Tensor
 import gc
 from torch.nn import functional as F
 
-from flow_matching.path import MixtureDiscreteProbPath
-
-from flow_matching.solver.solver import Solver
-from flow_matching.utils import categorical, ModelWrapper
+from ..path import MixtureDiscreteProbPath
+from .solver import Solver
+from ..utils import categorical, ModelWrapper
 from .utils import get_nearest_times
 from ..utils.multi_guidance import *
 

@@ -10,8 +10,8 @@ import torch
 from torch import Tensor
 from torchdiffeq import odeint
 
-from flow_matching.solver.solver import Solver
-from flow_matching.utils import gradient, ModelWrapper
+from .solver import Solver
+from ..utils import gradient, ModelWrapper
 
 
 class ODESolver(Solver):

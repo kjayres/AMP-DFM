@@ -27,14 +27,28 @@ ESM2_MODEL_NAME = "facebook/esm2_t33_650M_UR50D"
 
 _logger = logging.getLogger(__name__)
 
+# Simple per-device cache so we load ESM-2 only once per process/device
+_TOKENIZER_CACHE: dict[tuple[str, str], AutoTokenizer] = {}
+_MODEL_CACHE: dict[tuple[str, str], EsmModel] = {}
+
 
 def _load_esm(model_name: str = ESM2_MODEL_NAME, device: str | torch.device = "cpu"):
-    """Load ESM-2 model + tokenizer once and move model to *device*."""
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = EsmModel.from_pretrained(model_name)
-    model.eval()
-    model.to(device)
-    return tokenizer, model
+    """Load ESM-2 model + tokenizer once and move model to *device*.
+
+    Uses a lightweight in-process cache keyed by (model_name, str(device)).
+    """
+    key = (model_name, str(device))
+    tok = _TOKENIZER_CACHE.get(key)
+    mdl = _MODEL_CACHE.get(key)
+    if tok is None or mdl is None:
+        tok = AutoTokenizer.from_pretrained(model_name)
+        mdl = EsmModel.from_pretrained(model_name)
+        mdl.eval()
+        mdl.to(device)
+        _TOKENIZER_CACHE[key] = tok
+        _MODEL_CACHE[key] = mdl
+        _logger.info("Loaded ESM-2 '%s' on device %s", model_name, device)
+    return tok, mdl
 
 
 def _mean_pool(last_hidden_state: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
