@@ -2,8 +2,9 @@ import torch
 from functools import partial
 from torch.utils.data import DataLoader
 from torch import nn
+from typing import List, Dict, Any
 
-def collate_fn(batch):
+def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
     """Custom collator that flattens the 12-sequence groups written by
     ``prepare_ampdfm_dataset.py``.  After collation each field has the shape
     expected by the models: *all sequences in the batch* are stacked along the
@@ -42,29 +43,34 @@ def collate_fn(batch):
     }
 
 class CustomDataModule(nn.Module):
-    def __init__(self, train_dataset, val_dataset, test_dataset, collate_fn=collate_fn):
+    def __init__(self, train_dataset: Any, val_dataset: Any, test_dataset: Any = None, 
+                 collate_fn=collate_fn, batch_size: int = 512):
         super().__init__()
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.test_dataset = test_dataset
         self.collate_fn = collate_fn
+        self.batch_size = batch_size
 
-    def train_dataloader(self):
+    def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_dataset, 
+                          batch_size=self.batch_size,
                           collate_fn=partial(self.collate_fn),
                           num_workers=8,
                           pin_memory=True,
                           shuffle=True)
     
-    def val_dataloader(self):
+    def val_dataloader(self) -> DataLoader:
         return DataLoader(self.val_dataset, 
+                          batch_size=self.batch_size,
                           collate_fn=partial(self.collate_fn),
                           num_workers=8,
                           pin_memory=True,
                           shuffle=False)
   
-    def test_dataloader(self):
+    def test_dataloader(self) -> DataLoader:
         return DataLoader(self.test_dataset, 
+                          batch_size=self.batch_size,
                           collate_fn=partial(self.collate_fn),
                           num_workers=8,
                           pin_memory=True,

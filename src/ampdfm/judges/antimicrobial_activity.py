@@ -13,7 +13,6 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
-import xgboost as xgb
 
 from .xgboost_judge import XGBoostJudge
 
@@ -174,42 +173,10 @@ def label_antimicrobial_activity_sequences(
             after = len(labeled_sequences)
             logger.info(f"Appended {after - before} negative sequences (total now {after})")
 
-    # Compute sample weights using balanced class weighting with synthetic down-weighting
-    gamma = gamma_synthetic
-
-    P_total = (labeled_sequences["label"] == 1).sum()
-    N_curated_total = (
-        (labeled_sequences["label"] == 0) & (labeled_sequences["quality"] == "curated")
-    ).sum()
-    N_syn_total = (
-        (labeled_sequences["label"] == 0) & (labeled_sequences["quality"] == "synthetic")
-    ).sum()
-
-    N_total = P_total + N_curated_total + N_syn_total
-
-    if P_total == 0 or (N_curated_total + gamma * N_syn_total) == 0:
-        logger.error(
-            f"Invalid class counts – cannot compute sample weights "
-            f"(P={P_total}, N_curated={N_curated_total}, N_syn={N_syn_total})"
-        )
-        sys.exit(1)
-
-    omega_pos = N_total / (2 * P_total)
-    omega_neg_cur = N_total / (2 * (N_curated_total + gamma * N_syn_total))
-
-    def _assign_weight(row):
-        if row["label"] == 1:
-            return omega_pos
-        elif row["quality"] == "synthetic":
-            return gamma * omega_neg_cur
-        else:
-            return omega_neg_cur
-
-    labeled_sequences["weight"] = labeled_sequences.apply(_assign_weight, axis=1)
-
-    logger.info(
-        f"Sample weighting: ω_pos={omega_pos:.3f}, ω_neg_cur={omega_neg_cur:.3f}, "
-        f"γ={gamma:.3f} (ω_neg_syn={gamma * omega_neg_cur:.3f})"
+    # Compute per-sequence sample weights via shared utility, then merge
+    weight_map = compute_sample_weights(labeled_sequences, gamma_synthetic=gamma_synthetic)
+    labeled_sequences = labeled_sequences.merge(
+        weight_map, left_on="sequence", right_index=True, how="left"
     )
 
     return labeled_sequences
@@ -291,58 +258,6 @@ class AntimicrobialActivityJudge(XGBoostJudge):
         self.pos_threshold_ugml = pos_threshold_ugml
         self.neg_threshold_ugml = neg_threshold_ugml
         self.gamma_synthetic = gamma_synthetic
-
-    def train(
-        self,
-        X_train: np.ndarray,
-        y_train: np.ndarray,
-        X_val: np.ndarray,
-        y_val: np.ndarray,
-        sample_weight: Optional[np.ndarray] = None,
-        params_override: Optional[dict[str, Any]] = None,
-        num_boost_round: int = 2000,
-        early_stopping_rounds: int = 100,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Train XGBoost model with validation and sample weighting.
-
-        Args:
-            X_train: Training features (N_train, feature_dim)
-            y_train: Training labels (N_train,)
-            X_val: Validation features (N_val, feature_dim)
-            y_val: Validation labels (N_val,)
-            sample_weight: Training sample weights (N_train,)
-            params_override: Optional XGBoost parameters to override defaults
-            num_boost_round: Maximum number of boosting rounds
-            early_stopping_rounds: Early stopping patience
-            **kwargs: Additional arguments (ignored)
-
-        Returns:
-            Dictionary with 'model' (trained Booster) and 'evals_result' (training history)
-        """
-        logger.info(f"Training XGBoost {self.__class__.__name__}...")
-
-        dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weight)
-        dval = xgb.DMatrix(X_val, label=y_val)
-
-        params = {
-            "verbosity": 1,
-        }
-        if params_override:
-            params.update(params_override)
-
-        evals_result: dict[str, dict[str, list[float]]] = {}
-        self.model = xgb.train(
-            params,
-            dtrain,
-            num_boost_round=num_boost_round,
-            evals=[(dtrain, "train"), (dval, "val")],
-            early_stopping_rounds=early_stopping_rounds,
-            verbose_eval=100,
-            evals_result=evals_result,
-        )
-
-        return {"model": self.model, "evals_result": evals_result}
 
     def _get_target_names(self) -> list[str]:
         """Get target class names for classification report."""

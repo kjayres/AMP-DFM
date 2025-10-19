@@ -1,5 +1,5 @@
 import torch
-from flow_matching.utils import categorical
+from ..utils import categorical
 import math
 import inspect
 
@@ -31,39 +31,56 @@ def z_score_norm(tensor, eps=1e-8):
 def guided_transition_scoring(x_t, u_t, w, s_models, t, importance, args):
     B, L, vocab_size = u_t.shape
     device = x_t.device
-    guided_u_t = u_t.clone()  
-    
-    # 1. Randomly select one position per sequence.  
-    #    Index 0 is <cls>, index 1 is the AMP/NEG class token – both must stay fixed.  
-    pos_indices = torch.randint(low=2, high=L - 1, size=(B,), device=device)  # shape: (B,)
-    batch_idx = torch.arange(B, device=device)
-    current_tokens = x_t[batch_idx, pos_indices]  # shape: (B,)
+    guided_u_t = u_t.clone()
 
-    # 2. Candidate tokens – restrict to amino-acid indices (6–25).  
-    aa_tokens = torch.arange(6, vocab_size, device=device)              # length = vocab_size - 6
+    # Configurable ranges to support different tokenisations
+    # AMP-DFM uses <cls>=0, <eos>=2 and amino-acid tokens in [4, 23]
+    pos_low = getattr(args, "pos_low", 1)
+    aa_start_idx = getattr(args, "aa_start_idx", 4)
+
+    # 1. Randomly select one position per sequence (avoid last position assumed <eos>)
+    pos_indices = torch.randint(low=pos_low, high=L - 1, size=(B,), device=device)
+    batch_idx = torch.arange(B, device=device)
+    current_tokens = x_t[batch_idx, pos_indices]
+
+    # If a selected position holds a non-amino-acid token, resample that position a few times
+    invalid = (current_tokens < aa_start_idx) | (current_tokens >= vocab_size)
+    tries = 0
+    max_resample = 10
+    while invalid.any() and tries < max_resample:
+        new_pos = torch.randint(low=pos_low, high=L - 1, size=(invalid.sum().item(),), device=device)
+        pos_indices[invalid] = new_pos
+        current_tokens = x_t[batch_idx, pos_indices]
+        invalid = (current_tokens < aa_start_idx) | (current_tokens >= vocab_size)
+        tries += 1
+
+    # 2. Candidate tokens – restrict to amino-acid indices [aa_start_idx, vocab_size)
+    aa_tokens = torch.arange(aa_start_idx, vocab_size, device=device)
     num_aa = aa_tokens.numel()
 
-    full_cand_tokens = aa_tokens.unsqueeze(0).expand(B, num_aa)         # (B, num_aa)
-    # Remove self-transition (i.e. keep tokens ≠ current_token).
-    mask = full_cand_tokens != current_tokens.unsqueeze(1)              # (B, num_aa)
+    full_cand_tokens = aa_tokens.unsqueeze(0).expand(B, num_aa)
+    mask = full_cand_tokens != current_tokens.unsqueeze(1)
 
-    # Each row now has exactly (num_aa-1) true entries because current_token ∈ aa_tokens.
-    cand_tokens = torch.masked_select(full_cand_tokens, mask).view(B, num_aa - 1)  # (B, num_aa-1)
+    cand_flat = torch.masked_select(full_cand_tokens, mask)
+    expected = B * (num_aa - 1)
+    if cand_flat.numel() > expected:
+        cand_flat = cand_flat[:expected]
+    cand_tokens = cand_flat.view(B, num_aa - 1)
 
-    num_candidates = cand_tokens.size(1)  # = num_aa - 1
+    num_candidates = cand_tokens.size(1)
 
     # 3. Create candidate sequences by replacing the token at the selected position.
     new_x = x_t.unsqueeze(1).expand(B, num_aa, L).clone()
-    new_x = new_x[mask].view(B, num_candidates, L)  # (B, num_candidates, L)
-    new_x[batch_idx, :, pos_indices] = cand_tokens 
+    new_x = new_x[mask].view(B, num_candidates, L)
+    new_x[batch_idx, :, pos_indices] = cand_tokens
 
     new_x_flat = new_x.view(B * num_candidates, L)
     improvements_list = []
     with torch.no_grad():
         count = 0
         for i, s in enumerate(s_models):
-            sig = inspect.signature(s.forward) if hasattr(s, 'forward') else inspect.signature(s)
-            if 't' in sig.parameters:
+            sig = inspect.signature(s.forward) if hasattr(s, "forward") else inspect.signature(s)
+            if "t" in sig.parameters:
                 candidate_scores = s(new_x_flat, t)
                 base_score = s(x_t, t)
             else:
@@ -73,43 +90,64 @@ def guided_transition_scoring(x_t, u_t, w, s_models, t, importance, args):
             if isinstance(candidate_scores, tuple):
                 for k, score in enumerate(candidate_scores):
                     improvement = candidate_scores[k].view(B, num_candidates) - base_score[k].unsqueeze(1)
-                    improvement = improvement.float()
-                    improvement *= importance[count]
+                    improvement = improvement.float() * importance[count]
                     improvements_list.append(improvement.unsqueeze(2))
                     count += 1
             else:
                 improvement = candidate_scores.view(B, num_candidates) - base_score.unsqueeze(1)
-                improvement = improvement.float()
-                improvement *= importance[count]
-                improvements_list.append(improvement.unsqueeze(2))  # (B, vocab_size-1, 1)
+                improvement = improvement.float() * importance[count]
+                improvements_list.append(improvement.unsqueeze(2))
                 count += 1
 
-    improvement_values = torch.cat(improvements_list, dim=2)  # (B, num_candidates, N)
-    # No need to mask specials – only amino-acid tokens are present.
+    improvement_values = torch.cat(improvements_list, dim=2)
 
     # 5. Compute ranking scores I_n
-    ranks = torch.argsort(torch.argsort(improvement_values, dim=1), dim=1).float() + 1  # (B, num_candidates, N)
+    ranks = torch.argsort(torch.argsort(improvement_values, dim=1), dim=1).float() + 1
     I_n = ranks / float(num_candidates)
     avg_I = I_n.mean(dim=2)
-    norm_avg_I = z_score_norm(avg_I)    # (B, num_candidates)
-    
+    norm_avg_I = z_score_norm(avg_I)
+
     # 6. Compute directional score D
-    D = (improvement_values * w.view(1, 1, -1)).sum(dim=2)  
-    norm_D = z_score_norm(D)    # (B, num_candidates)
+    D = (improvement_values * w.view(1, 1, -1)).sum(dim=2)
+    norm_D = z_score_norm(D)
 
     # 7. Combine the scores
-    delta_S = norm_avg_I + args.lambda_ * norm_D  # (B, num_candidates)
+    delta_S = norm_avg_I + args.lambda_ * norm_D
 
     # 9. Update the guided velocities at the selected positions.
-    factor = torch.exp(args.beta * delta_S)  # (B, num_candidates)
+    factor = torch.exp(args.beta * delta_S)
     factor = torch.clamp(factor, min=-100, max=100)
+
+    # Optional homopolymer penalty: down-weight candidates creating runs ≥ 3
+    homo_gamma = getattr(args, "homopolymer_gamma", 0.0)
+    if homo_gamma and homo_gamma > 0:
+        penalty = torch.ones((B, num_candidates), device=device, dtype=guided_u_t.dtype)
+        hp_scalar = torch.exp(torch.tensor(-float(homo_gamma), device=device, dtype=guided_u_t.dtype))
+        for b in range(B):
+            pos = pos_indices[b].item()
+            for c in range(num_candidates):
+                seq = new_x[b, c]
+                tok = seq[pos]
+                run = 1
+                # extend left
+                i = pos - 1
+                while i >= 0 and seq[i] == tok:
+                    run += 1
+                    i -= 1
+                # extend right
+                i = pos + 1
+                while i < L and seq[i] == tok:
+                    run += 1
+                    i += 1
+                if run >= 3:
+                    penalty[b, c] = hp_scalar
+        factor = factor * penalty
 
     guided_u_t[batch_idx.unsqueeze(1), pos_indices.unsqueeze(1), cand_tokens] = \
         u_t[batch_idx.unsqueeze(1), pos_indices.unsqueeze(1), cand_tokens] * factor
 
-    # 10. For the self-transition (current token) at the selected position, 
-    # set its guided velocity to be the negative sum of the updated off-diagonals.
-    updated_vals = guided_u_t[batch_idx, pos_indices, :]  # (B, vocab_size)
+    # Self-transition velocity becomes the negative sum of updated off-diagonals.
+    updated_vals = guided_u_t[batch_idx, pos_indices, :]
     sum_off_diag = updated_vals.sum(dim=1) - updated_vals[batch_idx, current_tokens]
     guided_u_t[batch_idx, pos_indices, current_tokens] = -sum_off_diag
 

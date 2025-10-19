@@ -84,11 +84,12 @@ def main():
         organism = config.get('organism', None)
         pos_threshold = config['thresholds']['pos_threshold_ugml']
         neg_threshold = config['thresholds']['neg_threshold_ugml']
-        gamma_synthetic = config.get('gamma_synthetic', 0.3)
-        negatives = config.get('negatives', [
-            'negatives_with_splits.csv',
-            'negatives_synth_with_splits.csv'
-        ])
+        gamma_synthetic = config.get('gamma_synthetic', 0.25)
+        # Negatives are fixed; not configurable via YAML
+        negatives = [
+            'negatives_swissprot_with_splits.csv',  # curated negatives (SwissProt)
+            'negatives_synth_with_splits.csv'       # synthetic negatives
+        ]
         xgboost_params_cfg = config.get('xgboost_params', {})
     elif task == 'haemolysis':
         conc_threshold = config['thresholds']['conc_threshold_um']
@@ -110,6 +111,10 @@ def main():
     training_cfg = config.get('training', {})
     num_boost_round_cfg = int(training_cfg.get('num_boost_round', 2000))
     early_stopping_rounds_cfg = int(training_cfg.get('early_stopping_rounds', 100))
+
+    # Read seed and random_state directly from YAML
+    seed_cfg = int(config['seed'])
+    random_state_cfg = int(config.get('xgboost_params', {}).get('random_state', seed_cfg))
 
     # Evaluation configuration (optional cluster-aware CV after training)
     evaluation_cfg = config.get('evaluation', {})
@@ -238,6 +243,16 @@ def main():
         sample_weight_dev = None
         val_weight_dev = None
 
+    # Enforce fixed binary classification setup with AUC everywhere
+    if not isinstance(xgboost_params_cfg, dict):
+        xgboost_params_cfg = {}
+    # Always use binary logistic objective and AUC eval metric
+    xgboost_params_cfg['objective'] = 'binary:logistic'
+    xgboost_params_cfg['eval_metric'] = 'auc'
+    # Set both keys directly (no remapping logic)
+    xgboost_params_cfg['seed'] = seed_cfg
+    xgboost_params_cfg['random_state'] = random_state_cfg
+
     # Run Optuna tuning for XGBoost
     best_params = tune_xgboost(
         X_dev, y_dev, clusters_dev,
@@ -297,7 +312,7 @@ def main():
     roc_df.to_csv(output_path / 'roc_curve_data.csv', index=False)
     logger.info(f"ROC curve data saved to {output_path / 'roc_curve_data.csv'}")
 
-    # Save learning curve data (XGBoost training history)
+    # Save learning curve data (AUC history should always exist now)
     if 'evals_result' in result:
         evals = result['evals_result']
         pd.DataFrame({
