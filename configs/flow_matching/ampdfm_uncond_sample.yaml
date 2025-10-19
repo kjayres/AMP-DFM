@@ -1,0 +1,15 @@
+ckpt: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
+device: cuda:0
+amp_variant: generic
+
+output:
+  fasta_path: /rds/general/user/kja24/home/amp_dfm/outputs/peptides/unguided/unconditional_samples.fa
+  scores_path: /rds/general/user/kja24/home/amp_dfm/outputs/peptides/unguided/unconditional_samples_scores.csv
+
+sampling:
+  n_samples: 2000
+  n_steps: 100
+  len_min: 10
+  len_max: 30
+  seed: 42
+

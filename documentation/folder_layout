@@ -17,7 +17,7 @@ all sh files should look like:
 
 i.e. contain minimal extra detail and be ready to run - extra detail on model settings or file save locations should be stored in the .py file, config or toml files or somewhere else appropriate.
 
-everything gets renamed from hemolysis to haemolysis and potency to antimicrobial_activity
+everything gets renamed from hemolysis to haemolysis and antimicrobial_activity to antimicrobial_activity
 
 code should be clean, minimal and not overly bloated or with uneeded docstrings or comments but still work exactly as the oirginal did in terms of purpose and outputs
 

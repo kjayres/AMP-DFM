@@ -1,22 +1,14 @@
 #!/usr/bin/env python3
-"""Canonical amino-acid token mappings and helpers for AMP-DFM.
+"""Token mappings for AMP-DFM 24-token vocabulary.
 
-Exports a consistent mapping between token indices and amino-acid letters
-used by AMP-DFM (24-token vocabulary).
-
-Special tokens:
-- 0: <cls>
-- 2: <eos>
-
-Amino-acid tokens occupy indices 4..23 inclusive.
+Special tokens: 0 (<cls>), 2 (<eos>)
+Amino acids: 4-23
 """
 
 from __future__ import annotations
 
 from typing import Dict, List
 
-
-# Canonical AMP-DFM 24-token mapping (indices 4..23 are amino acids)
 IDX_TO_AA: Dict[int, str] = {
     4: "A",
     5: "C",
@@ -42,7 +34,6 @@ IDX_TO_AA: Dict[int, str] = {
 
 AA_TO_IDX: Dict[str, int] = {aa: idx for idx, aa in IDX_TO_AA.items()}
 
-# Exposed canonical indices to avoid scattering magic numbers
 CLS_IDX: int = 0
 EOS_IDX: int = 2
 AA_START_IDX: int = 4
@@ -50,11 +41,7 @@ AA_END_IDX: int = 23
 
 
 def detokenise(tokens: List[int]) -> str:
-    """Convert a list of token ids to an amino-acid string.
-
-    Only indices in the amino-acid range [4, 23] are converted; other tokens
-    are skipped.
-    """
+    """Convert token ids to amino-acid string."""
     return "".join(IDX_TO_AA.get(t, "") for t in tokens if AA_START_IDX <= t <= AA_END_IDX)
 
 

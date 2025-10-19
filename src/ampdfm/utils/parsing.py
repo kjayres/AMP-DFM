@@ -2,17 +2,7 @@ from argparse import ArgumentParser
 import math
 
 def parse_guidance_args(argv=None):
-    """Return guidance-related argparse Namespace.
-
-    Args
-    ----
-    argv : list[str] | None
-        Argument tokens to parse.  When *None* (default) the function falls
-        back to ``sys.argv[1:]`` – identical to the previous behaviour so
-        existing scripts remain unaffected.  Passing an explicit list lets
-        a caller pre-consume its own flags with ``parse_known_args`` and
-        avoid namespace clashes (e.g. ``--target`` in AMP-DFM sampling).
-    """
+    """Parse guidance-related arguments."""
     parser = ArgumentParser(add_help=False)
     
     parser.add_argument("--num_div", type=int, default=64)
@@ -33,5 +23,4 @@ def parse_guidance_args(argv=None):
     parser.add_argument("--n_batches", type=int, default=2)
     parser.add_argument("--homopolymer_gamma", type=float, default=0.0)
     
-    args = parser.parse_args(argv)
-    return args
+    return parser.parse_args(argv)
