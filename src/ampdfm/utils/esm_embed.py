@@ -1,6 +1,6 @@
 """ESM-2 embedding utilities for peptide sequences.
 
-Returns mean-pooled 1280-d embeddings compatible with XGBoost judges.
+Returns mean-pooled 1280-d embeddings compatible with XGBoost classifiers.
 """
 from __future__ import annotations
 

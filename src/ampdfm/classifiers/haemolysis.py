@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Haemolysis judge for erythrocyte toxicity prediction."""
+"""Haemolysis classifier for erythrocyte toxicity prediction."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 
 import pandas as pd
 
-from .xgboost_judge import XGBoostJudge
+from .xgboost_classifier import XGBoostClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def label_haemolysis_sequences(
     return labelled_df
 
 
-class HaemolysisJudge(XGBoostJudge):
+class HaemolysisClassifier(XGBoostClassifier):
     """XGBoost classifier for haemolysis prediction."""
 
     def __init__(

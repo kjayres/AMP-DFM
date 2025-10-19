@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Multi-objective ampdfm sampling guided by XGBoost judges (antimicrobial activity, haemolysis, cytotoxicity)."""
+"""Multi-objective ampdfm sampling guided by XGBoost classifiers (antimicrobial activity, haemolysis, cytotoxicity)."""
 # fmt: off
 import argparse
 import csv
@@ -20,17 +20,17 @@ from ampdfm.utils.parsing import parse_guidance_args
 from ampdfm.dfm.models.model_utils import load_solver
 from ampdfm.dfm.flow_matching.solver.discrete_solver import MixtureDiscreteEulerSolver
 from ampdfm.utils.tokenization import detokenise, CLS_IDX, EOS_IDX, AA_START_IDX, AA_END_IDX
-from ampdfm.judges.inference import TokenBoosterAdapter, TorchBoosterAdapter, EmbeddedBooster
+from ampdfm.classifiers.inference import TokenBoosterAdapter, TorchBoosterAdapter, EmbeddedBooster
 from ampdfm.utils.esm_embed import get_esm_embeddings
 
 
-def _resolve_judge_paths(task: str, variant: Optional[str] = None) -> tuple[Path, Path]:
-    """Locate judge model.json and metadata.pkl in outputs/judges or checkpoints/judges."""
+def _resolve_classifier_paths(task: str, variant: Optional[str] = None) -> tuple[Path, Path]:
+    """Locate classifier model.json and metadata.pkl in outputs/classifiers or checkpoints/classifiers."""
     project_root = Path(__file__).resolve().parents[2]
 
     candidate_bases = [
-        project_root / "outputs" / "judges",
-        project_root / "checkpoints" / "judges",
+        project_root / "outputs" / "classifiers",
+        project_root / "checkpoints" / "classifiers",
     ]
 
     def _normalise_variant(name: Optional[str]) -> List[str]:
@@ -64,7 +64,7 @@ def _resolve_judge_paths(task: str, variant: Optional[str] = None) -> tuple[Path
 
     tried_str = ", ".join(str(p) for p in tried_paths)
     raise FileNotFoundError(
-        f"Judge files not found for task '{task}'. Tried: {tried_str}"
+        f"Classifier files not found for task '{task}'. Tried: {tried_str}"
     )
 
 
@@ -107,9 +107,9 @@ def main():
         raise ValueError("importance must have exactly 3 values (antimicrobial activity, haemolysis, cytotoxicity)")
 
     variant = amp_variant
-    amp_model, _amp_meta = _resolve_judge_paths("antimicrobial_activity", variant)
-    hml_model, _hml_meta = _resolve_judge_paths("haemolysis")
-    cyt_model, _cyt_meta = _resolve_judge_paths("cytotoxicity")
+    amp_model, _amp_meta = _resolve_classifier_paths("antimicrobial_activity", variant)
+    hml_model, _hml_meta = _resolve_classifier_paths("haemolysis")
+    cyt_model, _cyt_meta = _resolve_classifier_paths("cytotoxicity")
 
     antimicrobial_activity_j = TorchBoosterAdapter(amp_model, device=device)
     haemolysis_j = TorchBoosterAdapter(hml_model, device=device)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""XGBoost judge base class with shared training/inference logic."""
+"""XGBoost classifier base class with shared training/inference logic."""
 
 from __future__ import annotations
 
@@ -11,13 +11,13 @@ import numpy as np
 import xgboost as xgb
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 
-from .base import BaseJudge
+from .base import BaseClassifier
 
 logger = logging.getLogger(__name__)
 
 
-class XGBoostJudge(BaseJudge):
-    """Base class for XGBoost-based judges."""
+class XGBoostClassifier(BaseClassifier):
+    """Base class for XGBoost-based classifiers."""
 
     def __init__(self, decision_threshold: float = 0.5):
         self.decision_threshold = decision_threshold
@@ -93,10 +93,10 @@ class XGBoostJudge(BaseJudge):
         logger.info(f"{self.__class__.__name__} saved to {path}")
 
     @classmethod
-    def load(cls, path: Path | str, **kwargs: Any) -> XGBoostJudge:
-        judge = cls(**kwargs)
-        judge.model = xgb.Booster()
-        judge.model.load_model(str(path))
+    def load(cls, path: Path | str, **kwargs: Any) -> XGBoostClassifier:
+        classifier = cls(**kwargs)
+        classifier.model = xgb.Booster()
+        classifier.model.load_model(str(path))
         logger.info(f"{cls.__name__} loaded from {path}")
-        return judge
+        return classifier
 
