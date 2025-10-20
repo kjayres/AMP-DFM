@@ -40,6 +40,10 @@ def _resolve_classifier_paths(task: str, variant: Optional[str] = None) -> tuple
         variants = [norm]
         if norm in {"ecoli", "e_coli"}:
             variants.append("escherichia_coli")
+        elif norm == "paeruginosa":
+            variants.append("pseudomonas_aeruginosa")
+        elif norm == "saureus":
+            variants.append("staphylococcus_aureus")
         return variants
 
     tried_paths = []
@@ -128,6 +132,7 @@ def main():
 
     setattr(g_args, 'pos_low', 1)
     setattr(g_args, 'aa_start_idx', AA_START_IDX)
+    setattr(g_args, 'aa_end_idx', AA_END_IDX)
 
     n_base = n_samples // n_batches
     remainder = n_samples % n_batches
@@ -159,7 +164,7 @@ def main():
         )
 
         batch_seqs = [detokenise(row) for row in x_final.cpu().tolist()]
-        batch_embs = get_esm_embeddings(batch_seqs, device=device)
+        batch_embs = get_esm_embeddings(batch_seqs, device=device, batch_size=128)
         a_scores = antimicrobial_activity_j.predict_from_embeddings(batch_embs)
         h_scores = haemolysis_j.predict_from_embeddings(batch_embs)
         c_scores = cytotoxicity_j.predict_from_embeddings(batch_embs)
