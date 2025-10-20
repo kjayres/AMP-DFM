@@ -5,22 +5,15 @@ __pycache__/
 *.so
 .Python
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
 # Environment
 .env
 .venv
 env/
 venv/
 
-# Model checkpoints and weights
-checkpoints/
-
 # Large data files
-data/embeddings/**/*.npy
-data/embeddings/**/*.pkl
-data/embeddings/esm2/
+data/embeddings/esm2/*
+!data/embeddings/esm2/.gitkeep
 
 # HPC job outputs
 *.o[0-9]*
@@ -42,11 +35,4 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
-
-# Project-specific ignores
-/scripts/train_dfm/ampdfm_uncond_vs_cond.py
-/scripts/train_dfm/ampdfm_uncond_vs_cond.sh
-/outputs/model_comparison/
-/scripts/visualisations/
-/src/ampdfm/evaluation/
 

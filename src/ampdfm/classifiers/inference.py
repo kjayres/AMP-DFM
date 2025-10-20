@@ -24,7 +24,7 @@ class EmbeddedBooster:
         self.device = device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
 
     def _features(self, sequences: List[str]) -> xgb.DMatrix:
-        embs = get_esm_embeddings(sequences, device=self.device)
+        embs = get_esm_embeddings(sequences, device=self.device, batch_size=128)
         return xgb.DMatrix(embs)
 
     def predict_from_embeddings(self, embeddings: np.ndarray) -> np.ndarray:
