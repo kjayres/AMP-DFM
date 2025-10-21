@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l walltime=17:00:00
+#PBS -l walltime=10:00:00
 #PBS -l select=1:ncpus=16:ngpus=1:mem=64gb
 #PBS -N ampdfm_mog_paeruginosa
 #PBS -j oe
