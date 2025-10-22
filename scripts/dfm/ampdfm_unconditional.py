@@ -34,22 +34,22 @@ with open(args.config, "r") as f:
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 TRAIN_PATH = cfg["data"]["train_path"]
-VAL_PATH   = cfg["data"]["val_path"]
+VAL_PATH = cfg["data"]["val_path"]
 
 CKPT_OUT = cfg["output"]["ckpt_out"]
 Path(CKPT_OUT).parent.mkdir(parents=True, exist_ok=True)
 
-vocab_size  = 24
-embed_dim   = 1024
-hidden_dim  = 512
+vocab_size = 24
+embed_dim = 1024
+hidden_dim = 512
 
-lr            = float(cfg.get("training", {}).get("lr", 1e-4))
-epochs        = int(cfg.get("training", {}).get("epochs", 200))
+lr = float(cfg.get("training", {}).get("lr", 1e-4))
+epochs = int(cfg.get("training", {}).get("epochs", 200))
 warmup_epochs = int(cfg.get("training", {}).get("warmup_epochs", max(1, epochs // 10)))
-batch_size    = int(cfg.get("training", {}).get("batch_size", 512))
-epsilon       = float(cfg.get("training", {}).get("epsilon", 1e-3))
-source_dist   = args.source_dist
-poly_n        = float(cfg.get("scheduler", {}).get("polynomial_n", 2.0))
+batch_size = int(cfg.get("training", {}).get("batch_size", 512))
+epsilon = float(cfg.get("training", {}).get("epsilon", 1e-3))
+source_dist = args.source_dist
+poly_n = float(cfg.get("scheduler", {}).get("polynomial_n", 2.0))
 
 seed = int(cfg.get("training", {}).get("seed", 42))
 random.seed(seed)
@@ -58,21 +58,21 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
 
 train_ds = load_from_disk(TRAIN_PATH)
-val_ds   = load_from_disk(VAL_PATH)
+val_ds = load_from_disk(VAL_PATH)
 
 data_module = dataloader.CustomDataModule(train_ds, val_ds, test_dataset=None, batch_size=batch_size)
 train_loader = data_module.train_dataloader()
-val_loader   = data_module.val_dataloader()
+val_loader = data_module.val_dataloader()
 
 model = CNNModelPep(alphabet_size=vocab_size, embed_dim=embed_dim, hidden_dim=hidden_dim).to(device)
 
-path      = MixtureDiscreteProbPath(PolynomialConvexScheduler(n=poly_n))
-loss_fn   = MixturePathGeneralizedKL(path=path)
-optim     = torch.optim.Adam(model.parameters(), lr=lr)
+path = MixtureDiscreteProbPath(PolynomialConvexScheduler(n=poly_n))
+loss_fn = MixturePathGeneralizedKL(path=path)
+optim = torch.optim.Adam(model.parameters(), lr=lr)
 
 warmup_lambda = lambda ep: 0.1 + 0.9 * ep / warmup_epochs if ep < warmup_epochs else 1.0
-warmup_sched  = LambdaLR(optim, lr_lambda=warmup_lambda)
-cosine_sched  = CosineAnnealingLR(optim, T_max=epochs - warmup_epochs, eta_min=0.1*lr)
+warmup_sched = LambdaLR(optim, lr_lambda=warmup_lambda)
+cosine_sched = CosineAnnealingLR(optim, T_max=epochs - warmup_epochs, eta_min=0.1*lr)
 
 def general_step(x_1: torch.Tensor) -> torch.Tensor:
     if source_dist == "uniform":
@@ -84,10 +84,10 @@ def general_step(x_1: torch.Tensor) -> torch.Tensor:
     else:
         raise NotImplementedError
 
-    t      = torch.rand(x_1.size(0), device=device) * (1 - epsilon)
+    t = torch.rand(x_1.size(0), device=device) * (1 - epsilon)
     sample = path.sample(t=t, x_0=x_0, x_1=x_1)
     logits = model(sample.x_t, sample.t)
-    loss   = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
+    loss = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
     return loss
 
 print("Starting unconditional training...")
@@ -113,7 +113,7 @@ for epoch in range(epochs):
             val_losses.append(loss.item())
 
     mean_train = sum(train_losses)/len(train_losses)
-    mean_val   = sum(val_losses)/len(val_losses)
+    mean_val = sum(val_losses)/len(val_losses)
 
     if mean_val < best_val:
         best_val = mean_val

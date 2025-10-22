@@ -8,6 +8,6 @@
 
 cd /rds/general/user/kja24/home
 
-source /rds/general/user/kja24/home/anaconda3/bin/activate mog-dfm
+source /rds/general/user/kja24/home/anaconda3/bin/activate amp-dfm
 
 python amp_dfm/scripts/data_preprocessing/prepare_ampdfm_uncond_dataset.py 
