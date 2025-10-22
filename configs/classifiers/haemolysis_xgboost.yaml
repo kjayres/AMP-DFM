@@ -13,7 +13,6 @@ thresholds:
   pct_threshold: 20
   decision_threshold: 0.5
 
-# Optuna hyper-parameter tuning
 optuna:
   trials: 20
   cv_folds: 5

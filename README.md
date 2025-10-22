@@ -1,4 +1,4 @@
-# AMP-DFM: Antimicrobial Peptide Discrete Flow Matching
+# AMP-DFM: Discrete Flow Matching for Multi-Property Antimicrobial Peptides
 
 This repository contains the core functions and code from my MSc thesis. This project involved designing a generative antimicrobial peptide model, AMP-DFM, to overcome core limitations in generative AMP models - notably, the increased toxicity risk that emerges from solely optimising the antimicrobial potency of generated peptides.
 
@@ -6,7 +6,7 @@ This repository contains the core functions and code from my MSc thesis. This pr
 
 A generative discrete flow matching model was used to create realistic and diverse peptides. The denoising process was then modified using trained classifiers for haemolysis, cytotoxicity and antimicrobial activity. Peptides were steered towards Pareto-optimal trade-offs across these properties with the goal of producing candidate sequences more likely to succeed in clinical settings.
 
-Other parts of the analysis such as peptide structure prediction, comparison with other models (generative + classifiers) and data collation were performed in a separate repository. This repository contains the core analysis and main results.
+Other parts of the analysis such as peptide structure prediction, comparison with other models (generative + classifiers) and data collation were performed in a separate repository. This repository contains only the main analysis and results.
 
 ## Outline
 
@@ -26,6 +26,7 @@ git clone https://github.com/kjayres/AMP-DFM
 cd amp_dfm
 conda env create -f documentation/amp-dfm.yml
 conda activate amp-dfm
+pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 triton==3.0.0 --index-url https://download.pytorch.org/whl/cu124
 ```
 
 ## Data Preprocessing
@@ -144,7 +145,7 @@ Generate peptides optimised for multiple objectives using classifier-guided samp
 python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_generic.yaml
 ```
 
-This uses XGBoost classifier gradients to guide the generation process toward peptides with high antimicrobial activity and low haemolysis and cytotoxicity. The guidance process can be customised through various parameters:
+This uses the classifiers to guide the generative process toward the design of peptides with high antimicrobial activity and low haemolysis and cytotoxicity. The guidance process can be customised through various parameters. Here are a few:
 
 **Key parameters in the config file:**
 - `amp_variant`: Target organism (generic, ecoli, paeruginosa, saureus)
@@ -167,7 +168,7 @@ Generated peptides are saved in two formats:
 
 The code for this repo and the generative model is largely based on the work of Chen et al. and Lipman et al. The design of the antimicrobial activity classifiers is based on the work of Soares et al. and Szymczak et al. The design of the haemolysis classifier is based on the work of Capecchi et al.
 
-If this code is of any interest, you may want to read the relevant papers:
+If this code is of any use, you may be interested in the relevant papers:
 
 ```bibtex
 @misc{chen2025multiobjectiveguideddiscreteflowmatching,

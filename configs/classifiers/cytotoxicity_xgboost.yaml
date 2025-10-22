@@ -12,7 +12,6 @@ thresholds:
   tox_threshold_um: 50
   decision_threshold: 0.55
 
-# Optuna hyper-parameter tuning
 optuna:
   trials: 20
   cv_folds: 5

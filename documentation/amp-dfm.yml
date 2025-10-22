@@ -344,12 +344,13 @@ dependencies:
       - safetensors==0.5.3
       - sympy==1.14.0
       - tokenizers==0.21.2
-      - torch==2.4.0+cu124
-      - torchaudio==2.4.0+cu124
+      # torch packages removed - install separately after env creation
+      # - torch==2.4.0+cu124
+      # - torchaudio==2.4.0+cu124
+      # - torchvision==0.19.0+cu124
+      # - triton==3.0.0
       - torchdiffeq==0.2.5
-      - torchvision==0.19.0+cu124
       - transformers==4.53.1
-      - triton==3.0.0
       - umap-learn==0.5.9.post2
       - xgboost==2.1.4
 prefix: /rds/general/user/kja24/home/anaconda3/envs/amp-dfm

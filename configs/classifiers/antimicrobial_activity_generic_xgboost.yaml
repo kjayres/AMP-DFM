@@ -8,7 +8,7 @@ checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/classifiers
 output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/classifiers
 
 # Task-specific parameters
-organism: null  # null for all organisms, or e.g. "Staphylococcus aureus" for species-specific
+organism: null
 
 thresholds:
   pos_threshold_ugml: 32
@@ -18,7 +18,6 @@ thresholds:
 
 gamma_synthetic: 0.5  # Down-weight synthetic negatives
 
-# Optuna hyper-parameter tuning
 optuna:
   trials: 20
   cv_folds: 5
