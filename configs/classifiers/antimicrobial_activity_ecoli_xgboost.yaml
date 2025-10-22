@@ -1,4 +1,4 @@
-# Configuration for antimicrobial activity classifier (XGBoost, E. coli only)
+# Configuration for antimicrobial activity classifier (XGBoost, E. coli)
 
 task: antimicrobial_activity
 
@@ -18,7 +18,6 @@ thresholds:
 
 gamma_synthetic: 0.5
 
-# Optuna hyper-parameter tuning
 optuna:
   trials: 20
   cv_folds: 5
