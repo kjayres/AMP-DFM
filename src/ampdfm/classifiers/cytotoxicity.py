@@ -21,7 +21,7 @@ def label_cytotoxicity_sequences(
     df: pd.DataFrame,
     tox_threshold_um: float = DEFAULT_TOX_THRESHOLD_UM,
 ) -> pd.DataFrame:
-    """Label sequences using ICx50 ≤ 50µM toxicity rule."""
+    """Label sequences using ICx50 <= 50uM toxicity rule"""
     logger.info(f"Labelling cytotoxicity: ICx ≤{tox_threshold_um}µM toxic, >{tox_threshold_um}µM safe")
 
     df = df.copy()
@@ -62,7 +62,7 @@ def label_cytotoxicity_sequences(
 
 
 class CytotoxicityClassifier(XGBoostClassifier):
-    """XGBoost classifier for cytotoxicity prediction."""
+    """XGBoost classifier for cytotoxicity prediction"""
 
     def __init__(
         self,

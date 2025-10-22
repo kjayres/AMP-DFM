@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""ampdfm_conditional_finetune.py
-
-Fine-tune the ampdfm CNN with a 4-bit conditioning vector [AMP, EC, PA, SA]
-on the same tokenised dataset produced by `prepare_ampdfm_dataset.py` which now
-includes a `cond_vec` field. Starts from the unconditional checkpoint to keep
-weights and adds a small conditioning projection.
-
-Outputs: ampflow/ampdfm_ckpt/ampdfm_conditional_finetuned.ckpt
-"""
+"""Fine-tune ampdfm CNN with 4-bit conditioning vector [AMP, EC, PA, SA]"""
 from __future__ import annotations
 
 import random
@@ -19,9 +11,8 @@ import torch
 from datasets import load_from_disk
 from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR
 
-# Ensure project src is on PYTHONPATH when invoked via batch jobs
 import sys
-PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../amp_dfm
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from ampdfm.dfm.flow_matching.path import MixtureDiscreteProbPath
@@ -30,8 +21,6 @@ from ampdfm.dfm.flow_matching.loss import MixturePathGeneralizedKL
 
 from ampdfm.dfm.models.peptide_models import CNNModel
 from ampdfm.utils import dataloader
-
-# Seeding configured via YAML (training.seed); applied after config load
 
 parser = argparse.ArgumentParser(description="Fine-tune AMP-DFM with 4-bit conditioning vector")
 parser.add_argument("--config", required=True, help="Path to YAML config file")
@@ -51,7 +40,6 @@ INIT_CKPT = cfg["init"]["ckpt"]
 CKPT_OUT  = cfg["output"]["ckpt_out"]
 Path(CKPT_OUT).parent.mkdir(parents=True, exist_ok=True)
 
-# Architectural constants
 vocab_size  = 24
 embed_dim   = 1024
 hidden_dim  = 512
@@ -64,14 +52,12 @@ epsilon       = float(cfg.get("training", {}).get("epsilon", 1e-3))
 source_dist   = args.source_dist
 poly_n        = float(cfg.get("scheduler", {}).get("polynomial_n", 2.0))
 
-# Apply seeds from YAML
 seed = int(cfg.get("training", {}).get("seed", 42))
 random.seed(seed)
 torch.manual_seed(seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
 
-# Resolve device after parsing; default to CPU unless explicitly set to CUDA and available
 if args.device == "cuda" and torch.cuda.is_available():
     device = "cuda:0"
 else:
@@ -82,12 +68,11 @@ val_ds   = load_from_disk(VAL_PATH)
 
 if args.amp_only:
     def keep_amp(record):
-        return any(sum(vec) > 0 for vec in record["cond_vec"])  # record-level gate
+        return any(sum(vec) > 0 for vec in record["cond_vec"])
     train_ds = train_ds.filter(keep_amp)
     val_ds   = val_ds.filter(keep_amp)
 
 def collate_amp_filter(batch):
-    # Reuse base collate then drop negatives if amp_only
     out = dataloader.collate_fn(batch)
     if args.amp_only:
         mask = (out["cond_vec"].sum(dim=1) > 0)
@@ -102,8 +87,6 @@ val_loader   = data_module.val_dataloader()
 
 model = CNNModel(alphabet_size=vocab_size, embed_dim=embed_dim, hidden_dim=hidden_dim, cond_dim=4).to(device)
 
-# Load unconditional weights into matching submodules (token/time/conv). The
-# new cond_proj is randomly initialised.
 try:
     sd = torch.load(INIT_CKPT, map_location=device)
     missing, unexpected = model.load_state_dict(sd, strict=False)
@@ -135,7 +118,7 @@ def general_step(x_1: torch.Tensor, cond_vec: torch.Tensor) -> torch.Tensor:
     loss   = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
     return loss
 
-print("Starting conditional fine-tune …")
+print("Starting conditional fine-tune...")
 best_val = float("inf")
 for epoch in range(epochs):
     model.train()
@@ -164,7 +147,7 @@ for epoch in range(epochs):
     if mean_val < best_val:
         best_val = mean_val
         torch.save(model.state_dict(), CKPT_OUT)
-        print(f"[Epoch {epoch}] New best ValLoss {mean_val:.4f} – saved → {CKPT_OUT}")
+        print(f"[Epoch {epoch}] New best ValLoss {mean_val:.4f} - saved -> {CKPT_OUT}")
 
     if epoch < warmup_epochs:
         warmup_sched.step()
@@ -175,5 +158,3 @@ for epoch in range(epochs):
         print(f"Epoch {epoch:03d}: train {mean_train:.4f}  val {mean_val:.4f}")
 
 print("Fine-tune complete. Best ValLoss:", best_val)
-
-

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Token mappings for AMP-DFM 24-token vocabulary.
-
-Special tokens: 0 (<cls>), 2 (<eos>)
-Amino acids: 4-23
-"""
+"""Token mappings for AMP-DFM 24-token vocabulary"""
 
 from __future__ import annotations
 
@@ -41,7 +37,5 @@ AA_END_IDX: int = 23
 
 
 def detokenise(tokens: List[int]) -> str:
-    """Convert token ids to amino-acid string."""
+    """Convert token ids to amino-acid string"""
     return "".join(IDX_TO_AA.get(t, "") for t in tokens if AA_START_IDX <= t <= AA_END_IDX)
-
-

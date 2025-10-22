@@ -20,7 +20,7 @@ def label_haemolysis_sequences(
     conc_threshold_um: float = DEFAULT_CONC_THRESHOLD_UM,
     pct_threshold: float = DEFAULT_PCT_THRESHOLD,
 ) -> pd.DataFrame:
-    """Label sequences using haemolysis 20%/50µM rule."""
+    """Label sequences using haemolysis 20%/50uM rule"""
     logger.info(f"Labelling haemolysis: >{pct_threshold}% toxic, ≤{pct_threshold}% at ≥{conc_threshold_um}µM safe")
 
     df = df.copy()
@@ -62,7 +62,7 @@ def label_haemolysis_sequences(
 
 
 class HaemolysisClassifier(XGBoostClassifier):
-    """XGBoost classifier for haemolysis prediction."""
+    """XGBoost classifier for haemolysis prediction"""
 
     def __init__(
         self,

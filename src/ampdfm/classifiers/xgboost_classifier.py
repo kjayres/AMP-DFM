@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class XGBoostClassifier(BaseClassifier):
-    """Base class for XGBoost-based classifiers."""
+    """Base class for XGBoost-based classifiers"""
 
     def __init__(self, decision_threshold: float = 0.5):
         self.decision_threshold = decision_threshold
@@ -36,7 +36,6 @@ class XGBoostClassifier(BaseClassifier):
         **kwargs: Any,
     ) -> dict[str, Any]:
         logger.info(f"Training XGBoost {self.__class__.__name__}...")
-        
         dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weight)
         dval = xgb.DMatrix(X_val, label=y_val)
 

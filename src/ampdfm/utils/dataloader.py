@@ -5,10 +5,7 @@ from torch import nn
 from typing import List, Dict, Any
 
 def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
-    """Flatten grouped sequences for batch processing.
-    
-    Returns (B×G, L) tensors where G=12 is the group size.
-    """
+    """Flatten grouped sequences for batch processing"""
     flat_input_ids = []
     flat_attention = []
     flat_cond_vec  = []

@@ -19,7 +19,7 @@ DEFAULT_GAMMA_SYNTHETIC = 0.25
 
 
 def convert_ugml_to_um(ugml_value: float, mw_da: float) -> float:
-    """Convert μg/mL to μM."""
+    """Convert ug/mL to uM"""
     return (ugml_value / mw_da) * 1000.0
 
 
@@ -31,7 +31,7 @@ def label_antimicrobial_activity_sequences(
     gamma_synthetic: float = DEFAULT_GAMMA_SYNTHETIC,
     organism_filter: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Label sequences for antimicrobial activity classification."""
+    """Label sequences for antimicrobial activity classification"""
     logger.info(f"Labelling: positive ≤{pos_threshold_ugml} μg/mL, negative ≥{neg_threshold_ugml} μg/mL")
 
     df = activity_df.copy()
@@ -112,7 +112,7 @@ def compute_sample_weights(
     train_sequences: pd.DataFrame,
     gamma_synthetic: float = DEFAULT_GAMMA_SYNTHETIC,
 ) -> pd.Series:
-    """Compute per-sequence sample weights. Returns Series mapping sequence → weight."""
+    """Compute per-sequence sample weights"""
     df = train_sequences.copy()
 
     if "quality" not in df.columns:
@@ -143,7 +143,7 @@ def compute_sample_weights(
 
 
 class AntimicrobialActivityClassifier(XGBoostClassifier):
-    """XGBoost classifier for antimicrobial activity."""
+    """XGBoost classifier for antimicrobial activity"""
 
     def __init__(
         self,

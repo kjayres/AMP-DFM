@@ -1,7 +1,4 @@
-"""ESM-2 embedding utilities for peptide sequences.
-
-Returns mean-pooled 1280-d embeddings compatible with XGBoost classifiers.
-"""
+"""ESM-2 embedding utilities for peptide sequences"""
 from __future__ import annotations
 
 import logging
@@ -21,7 +18,7 @@ _MODEL_CACHE: dict[tuple[str, str], EsmModel] = {}
 
 
 def _load_esm(model_name: str = ESM2_MODEL_NAME, device: str | torch.device = "cpu"):
-    """Load ESM-2 model and tokenizer with per-device caching."""
+    """Load ESM-2 model and tokenizer with per-device caching"""
     key = (model_name, str(device))
     tok = _TOKENIZER_CACHE.get(key)
     mdl = _MODEL_CACHE.get(key)
@@ -37,7 +34,7 @@ def _load_esm(model_name: str = ESM2_MODEL_NAME, device: str | torch.device = "c
 
 
 def _mean_pool(last_hidden_state: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
-    """Mean-pool over sequence length, ignoring padding."""
+    """Mean-pool over sequence length, ignoring padding"""
     mask = attention_mask.unsqueeze(-1)
     summed = (last_hidden_state * mask).sum(dim=1)
     lengths = mask.sum(dim=1)
@@ -50,7 +47,7 @@ def get_esm_embeddings(
     device: str | torch.device = "cpu",
     dtype: torch.dtype = torch.float32,
 ) -> np.ndarray:
-    """Compute 1280-d mean-pooled ESM-2 embeddings. Returns (N, 1280) array."""
+    """Compute 1280-d mean-pooled ESM-2 embeddings"""
     tokenizer, model = _load_esm(device=device)
 
     all_embs: list[torch.Tensor] = []
@@ -99,4 +96,4 @@ if __name__ == "__main__":
     with open(Path(args.output).with_suffix(".txt"), "w") as f:
         f.write("\n".join(seqs))
 
-    print(f"Wrote {embs.shape[0]} embeddings to {args.output}") 
+    print(f"Wrote {embs.shape[0]} embeddings to {args.output}")

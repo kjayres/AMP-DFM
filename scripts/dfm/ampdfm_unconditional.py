@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""ampdfm_unconditional.py
-
-Train a *ampdfm-sized* CNN model **without conditioning** on the full AMP
-corpus that we converted to 24-token format in
-`ampflow/ampdfm_data/tokenized_pep/`.
-
-The hyper-parameters match the original ampdfm paper:
-    embed = 512, hidden = 256, 5 convolutional blocks, 24-token vocab.
-
-Output checkpoint:  ampflow/ampdfm_ckpt/ampdfm_unconditional_epoch200.ckpt
-"""
+"""Train ampdfm-sized CNN model without conditioning"""
 from __future__ import annotations
 
 import random
@@ -32,9 +22,6 @@ from ampdfm.dfm.flow_matching.loss import MixturePathGeneralizedKL
 from ampdfm.dfm.models.peptide_models import CNNModelPep
 from ampdfm.utils import dataloader
 
-# ------------------------- Reproducibility ---------------------------------
-# Seeding configured via YAML (training.seed); applied after config load
-
 parser = argparse.ArgumentParser(description="Train AMP-DFM unconditional model")
 parser.add_argument("--config", required=True, help="Path to YAML config file")
 parser.add_argument("--source_dist", choices=["uniform", "mask"], default="uniform",
@@ -44,7 +31,6 @@ args = parser.parse_args()
 with open(args.config, "r") as f:
     cfg = yaml.safe_load(f)
 
-# ------------------------- Paths & config ----------------------------------
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 TRAIN_PATH = cfg["data"]["train_path"]
@@ -53,7 +39,6 @@ VAL_PATH   = cfg["data"]["val_path"]
 CKPT_OUT = cfg["output"]["ckpt_out"]
 Path(CKPT_OUT).parent.mkdir(parents=True, exist_ok=True)
 
-# Architectural constants (kept in code to avoid config drift)
 vocab_size  = 24
 embed_dim   = 1024
 hidden_dim  = 512
@@ -66,14 +51,12 @@ epsilon       = float(cfg.get("training", {}).get("epsilon", 1e-3))
 source_dist   = args.source_dist
 poly_n        = float(cfg.get("scheduler", {}).get("polynomial_n", 2.0))
 
-# Apply seeds from YAML
 seed = int(cfg.get("training", {}).get("seed", 42))
 random.seed(seed)
 torch.manual_seed(seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
 
-# ------------------------- Data -------------------------------------------
 train_ds = load_from_disk(TRAIN_PATH)
 val_ds   = load_from_disk(VAL_PATH)
 
@@ -81,7 +64,6 @@ data_module = dataloader.CustomDataModule(train_ds, val_ds, test_dataset=None, b
 train_loader = data_module.train_dataloader()
 val_loader   = data_module.val_dataloader()
 
-# ------------------------- Model & loss -----------------------------------
 model = CNNModelPep(alphabet_size=vocab_size, embed_dim=embed_dim, hidden_dim=hidden_dim).to(device)
 
 path      = MixtureDiscreteProbPath(PolynomialConvexScheduler(n=poly_n))
@@ -92,14 +74,12 @@ warmup_lambda = lambda ep: 0.1 + 0.9 * ep / warmup_epochs if ep < warmup_epochs 
 warmup_sched  = LambdaLR(optim, lr_lambda=warmup_lambda)
 cosine_sched  = CosineAnnealingLR(optim, T_max=epochs - warmup_epochs, eta_min=0.1*lr)
 
-# ------------------------- Training step ----------------------------------
-
 def general_step(x_1: torch.Tensor) -> torch.Tensor:
     if source_dist == "uniform":
         x_0 = torch.randint_like(x_1, high=vocab_size)
-        x_0[:, 0] = x_1[:, 0]  # keep <cls> fixed
+        x_0[:, 0] = x_1[:, 0]
     elif source_dist == "mask":
-        x_0 = torch.zeros_like(x_1) + 3  # <unk>
+        x_0 = torch.zeros_like(x_1) + 3
         x_0[:, 0] = x_1[:, 0]
     else:
         raise NotImplementedError
@@ -110,8 +90,7 @@ def general_step(x_1: torch.Tensor) -> torch.Tensor:
     loss   = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
     return loss
 
-# ------------------------- Training loop ----------------------------------
-print("Starting ampdfm-size unconditional training …")
+print("Starting unconditional training...")
 
 best_val = float("inf")
 for epoch in range(epochs):
@@ -139,7 +118,7 @@ for epoch in range(epochs):
     if mean_val < best_val:
         best_val = mean_val
         torch.save(model.state_dict(), CKPT_OUT)
-        print(f"[Epoch {epoch}] New best ValLoss {mean_val:.4f} – saved → {CKPT_OUT}")
+        print(f"[Epoch {epoch}] New best ValLoss {mean_val:.4f} - saved -> {CKPT_OUT}")
 
     if epoch < warmup_epochs:
         warmup_sched.step()
@@ -149,4 +128,4 @@ for epoch in range(epochs):
     if epoch % 5 == 0 or epoch == epochs-1:
         print(f"Epoch {epoch:03d}: train {mean_train:.4f}  val {mean_val:.4f}")
 
-print("Training complete. Best ValLoss:", best_val) 
+print("Training complete. Best ValLoss:", best_val)

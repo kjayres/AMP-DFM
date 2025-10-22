@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""ampdfm_uncond_sample.py
-
-Sample peptides from a trained unconditional AMP-DFM model and score with classifiers.
-
-Usage:
-    python ampdfm_uncond_sample.py --config configs/flow_matching/ampdfm_uncond_sample.yaml
-"""
+"""Sample peptides from unconditional AMP-DFM model and score with classifiers"""
 from __future__ import annotations
 
 import csv

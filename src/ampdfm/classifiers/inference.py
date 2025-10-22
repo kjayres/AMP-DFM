@@ -16,7 +16,7 @@ from ampdfm.utils.tokenization import detokenise
 
 
 class EmbeddedBooster:
-    """XGBoost Booster + ESM-2 embedding pipeline for inference."""
+    """XGBoost Booster + ESM-2 embedding pipeline for inference"""
 
     def __init__(self, booster_path: str | Path, device: str | torch.device | None = None):
         self.booster = xgb.Booster()
@@ -28,11 +28,11 @@ class EmbeddedBooster:
         return xgb.DMatrix(embs)
 
     def predict_from_embeddings(self, embeddings: np.ndarray) -> np.ndarray:
-        """Predict from precomputed embeddings."""
+        """Predict from precomputed embeddings"""
         return self.booster.predict(xgb.DMatrix(embeddings))
 
     def predict(self, sequences: Iterable[str]) -> np.ndarray:
-        """Predict from sequences."""
+        """Predict from sequences"""
         seqs = list(sequences)
         if len(seqs) == 0:
             return np.zeros((0,), dtype=np.float32)
@@ -40,7 +40,7 @@ class EmbeddedBooster:
 
 
 class TokenBoosterAdapter:
-    """Adapter to score token tensors by detokenising to sequences."""
+    """Adapter to score token tensors by detokenising to sequences"""
 
     def __init__(self, booster_path: str | Path, device: str | torch.device | None = None):
         self._booster = EmbeddedBooster(booster_path, device=device)
@@ -57,7 +57,7 @@ class TokenBoosterAdapter:
 
 
 class TorchBoosterAdapter(nn.Module):
-    """PyTorch wrapper for token-based inference."""
+    """PyTorch wrapper for token-based inference"""
 
     def __init__(self, booster_path: str | Path, device: str | torch.device | None = None):
         super().__init__()

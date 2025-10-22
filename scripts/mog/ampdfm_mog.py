@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Multi-objective ampdfm sampling guided by XGBoost classifiers (antimicrobial activity, haemolysis, cytotoxicity)."""
+"""Multi-objective ampdfm sampling guided by XGBoost classifiers"""
 # fmt: off
 import argparse
 import csv
@@ -10,8 +10,6 @@ import numpy as np
 import random
 import torch
 from tqdm import tqdm
-
-# fmt: on
 
 import sys
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -25,7 +23,7 @@ from ampdfm.utils.esm_embed import get_esm_embeddings
 
 
 def _resolve_classifier_paths(task: str, variant: Optional[str] = None) -> tuple[Path, Path]:
-    """Locate classifier model.json and metadata.pkl in outputs/classifiers or checkpoints/classifiers."""
+    """Locate classifier model.json and metadata.pkl"""
     project_root = Path(__file__).resolve().parents[2]
 
     candidate_bases = [

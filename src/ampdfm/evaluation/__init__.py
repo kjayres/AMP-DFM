@@ -4,7 +4,6 @@ from .metrics import (
     length_distribution,
     kl_div,
     shannon_entropy,
-    positional_entropy,
     hydrophobic_moment,
     gravy,
     mean_levenshtein,
@@ -17,11 +16,8 @@ __all__ = [
     "length_distribution",
     "kl_div",
     "shannon_entropy",
-    "positional_entropy",
     "hydrophobic_moment",
     "gravy",
     "mean_levenshtein",
     "compute_diversity_metrics",
 ]
-
-

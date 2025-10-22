@@ -1,7 +1,7 @@
 
 from __future__ import annotations
 
-import argparse, math, random, json, tempfile, subprocess, gzip
+import argparse, math, random, json
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -44,9 +44,6 @@ def parse_args():
     p.add_argument("--amp_val_path", type=str)
     p.add_argument("--pep_val_path", type=str)
     p.add_argument("--lev_samples", type=int)
-    p.add_argument("--no_mmseqs", action="store_true")
-    p.add_argument("--train_fasta_map", nargs="*", default=[])
-    p.add_argument("--train_hf_map", nargs="*", default=[])
     p.add_argument("--val_map", nargs="*", default=[])
     return p.parse_args()
 
@@ -131,47 +128,6 @@ def sample_conditional_ampdfm(ckpt: Path, cond: str, n_samples: int, device: str
     return collected[:n_samples]
 
 
-def fasta_iter(path: Path):
-    opener = gzip.open if str(path).endswith(".gz") else open
-    with opener(path, "rt") as f:
-        seq = []
-        for line in f:
-            if line.startswith(">"):
-                if seq:
-                    yield "".join(seq)
-                    seq = []
-            else:
-                seq.append(line.strip())
-        if seq:
-            yield "".join(seq)
-
-
-def _load_train_from_fasta(fp: Path) -> List[str]:
-    return list(fasta_iter(fp))
-
-
-def _load_train_from_hf(hf_path: str) -> List[str]:
-    ds_loaded = load_from_disk(hf_path)
-    try:
-        keys = list(ds_loaded.keys())
-        datasets = [ds_loaded["train"]] if "train" in keys else [ds_loaded[k] for k in keys]
-    except:
-        datasets = [ds_loaded]
-
-    seqs = []
-    for ds in datasets:
-        for rec in ds:
-            ids = rec.get("input_ids")
-            if not ids:
-                continue
-            flat = [int(x) for sub in ids for x in sub] if isinstance(ids[0], (list, tuple)) else [int(x) for x in ids]
-            if max(flat) >= 24:
-                seqs.append(detokenise([t - 2 for t in flat]))
-            else:
-                seqs.append(detokenise(flat))
-    return seqs
-
-
 def _parse_tag_map(items: List[str]) -> Dict[str, str]:
     out = {}
     for it in items:
@@ -251,7 +207,6 @@ def main():
     amp_val_path = args.amp_val_path or cfg["data"]["amp_val_path"]
     pep_val_path = args.pep_val_path or cfg["data"]["pep_val_path"]
     lev_samples = args.lev_samples if args.lev_samples else n_samples
-    mmseqs_flag = not args.no_mmseqs
 
     out_dir.mkdir(parents=True, exist_ok=True)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -263,10 +218,7 @@ def main():
 
     thr = 0.8
     summaries = []
-    fasta_map = _parse_tag_map(args.train_fasta_map)
-    hf_map = _parse_tag_map(args.train_hf_map)
     val_map = _parse_tag_map(args.val_map)
-    train_cache = {}
 
     def _display_label(tag_raw, ckpt_path, cond):
         t = tag_raw.lower()
@@ -304,10 +256,9 @@ def main():
         pd.DataFrame({"sequence": seqs, "amp_generic": amp_generic, "amp_sa": amp_sa,
                       "amp_pa": amp_pa, "amp_ec": amp_ec}).to_csv(out_dir / f"{_slug(label)}_scores.csv", index=False)
 
-        metrics = compute_diversity_metrics(seqs)
+        metrics = compute_diversity_metrics(seqs, lev_pairs=lev_samples)
         pct_unique = metrics["pct_unique"]
         dup_rate = metrics["duplicate_rate"]
-        shannon = metrics["positional_entropy"]
         lev_mean = metrics["lev_mean"]
 
         print("Validation perplexity")
@@ -316,59 +267,6 @@ def main():
         vp = val_map.get(tag, val_path)
         ppl = validation_perplexity(ckpt_path, vp, cond_vec_for_ppl, device)
 
-        kl_aa = kl_len = exact_overlap = mmseqs80_hits = None
-        lev_to_train_avg = lev_to_train_median = lev_to_train_prop_lt5 = aa_ent = None
-
-        train_seqs = None
-        if tag in train_cache:
-            train_seqs = train_cache[tag]
-        elif tag in fasta_map:
-            try:
-                train_seqs = _load_train_from_fasta(Path(fasta_map[tag]))
-                train_cache[tag] = train_seqs
-            except:
-                pass
-        elif tag in hf_map:
-            try:
-                train_seqs = _load_train_from_hf(hf_map[tag])
-                train_cache[tag] = train_seqs
-            except:
-                pass
-
-        if train_seqs:
-            tmetrics = compute_diversity_metrics(seqs, train_sequences=train_seqs, lev_pairs=0)
-            kl_aa = tmetrics["kl_aa"]
-            kl_len = tmetrics["kl_len"]
-            aa_ent = tmetrics["aa_entropy"]
-            exact_overlap = len(set(seqs) & set(train_seqs))
-
-            if lev_samples:
-                import Levenshtein
-                rng = np.random.default_rng(0)
-                gen_sample = seqs if len(seqs) <= lev_samples else list(rng.choice(seqs, size=lev_samples, replace=False))
-                train_sample = train_seqs if len(train_seqs) <= 2000 else list(rng.choice(train_seqs, size=2000, replace=False))
-                dists = [min(Levenshtein.distance(g, t) for t in train_sample) for g in gen_sample]
-                lev_to_train_avg = float(np.mean(dists))
-                lev_to_train_median = float(np.median(dists))
-                lev_to_train_prop_lt5 = float(np.mean(np.array(dists) < 5))
-
-            if mmseqs_flag:
-                try:
-                    tmp = Path(tempfile.mkdtemp())
-                    gen_fa = tmp / "gen.fa"
-                    gen_fa.write_text("\n".join(f">g{i}\n{s}" for i, s in enumerate(seqs, 1)))
-                    train_path = fasta_map[tag] if tag in fasta_map else tmp / "train.fa"
-                    if tag not in fasta_map:
-                        train_path.write_text("\n".join(f">t{i}\n{s}" for i, s in enumerate(train_seqs, 1)))
-                    subprocess.run(["mmseqs", "createdb", str(gen_fa), str(tmp / "gen_db")], check=True)
-                    subprocess.run(["mmseqs", "createdb", str(train_path), str(tmp / "train_db")], check=True)
-                    res = tmp / "res"
-                    subprocess.run(["mmseqs", "easy-search", str(gen_fa), str(train_path), str(res), str(tmp/"tmp"),
-                                    "--min-seq-id", "0.8", "-e", "1e-4"], check=True)
-                    mmseqs80_hits = sum(1 for _ in res.open())
-                except:
-                    pass
-
         hits_generic = int((amp_generic >= thr).sum())
         hits_sa = int((amp_sa >= thr).sum())
         hits_pa = int((amp_pa >= thr).sum())
@@ -376,14 +274,11 @@ def main():
 
         summaries.append({"tag": tag, "label": label, "hits_generic": hits_generic, "hits_sa": hits_sa,
             "hits_pa": hits_pa, "hits_ec": hits_ec, "%unique": pct_unique, "duplicate_rate": dup_rate,
-            "shannon": shannon, "positional_entropy": shannon, "lev_mean": lev_mean, "perplexity": ppl,
-            "kl_aa": kl_aa, "kl_len": kl_len, "exact_overlap": exact_overlap, "mmseqs80_hits": mmseqs80_hits,
-            "lev_to_train_avg": lev_to_train_avg, "lev_to_train_median": lev_to_train_median,
-            "lev_to_train_prop_lt5": lev_to_train_prop_lt5, "aa_entropy": aa_ent})
+            "lev_mean": lev_mean, "perplexity": ppl})
 
     (out_dir / "summary_metrics.json").write_text(json.dumps(summaries, indent=2))
-    print("Saved summary →", out_dir)
+    print("Saved summary ->", out_dir)
 
 
 if __name__ == "__main__":
-    main() 
+    main()

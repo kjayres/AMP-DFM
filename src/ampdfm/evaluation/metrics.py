@@ -69,23 +69,6 @@ def shannon_entropy(freq: np.ndarray, eps: float = 1e-12) -> float:
     return float(-np.sum(f * np.log2(f)))
 
 
-def positional_entropy(sequences: List[str]) -> float:
-    if not sequences:
-        return float("nan")
-    max_len = max(len(s) for s in sequences)
-    entropies: List[float] = []
-    for pos in range(max_len):
-        symbols: Dict[str, int] = {}
-        for s in sequences:
-            ch = s[pos] if pos < len(s) else "-"
-            symbols[ch] = symbols.get(ch, 0) + 1
-        total = float(sum(symbols.values()))
-        probs = np.array([c / total for c in symbols.values()], dtype=float)
-        ent = -(probs * np.log2(probs + 1e-9)).sum()
-        entropies.append(float(ent))
-    return float(np.mean(entropies))
-
-
 def hydrophobic_moment(sequence: str, theta_degrees: float = 100.0) -> float:
     x_sum = 0.0
     y_sum = 0.0
@@ -119,50 +102,23 @@ def mean_levenshtein(sequences: List[str], n_pairs: int = 2000) -> float:
 
 def compute_diversity_metrics(
     sequences: List[str],
-    train_sequences: Optional[List[str]] = None,
     lev_pairs: int = 2000,
 ) -> Dict[str, Optional[float]]:
     if not sequences:
         return {
             "pct_unique": 0.0,
             "duplicate_rate": 0.0,
-            "positional_entropy": float("nan"),
             "lev_mean": float("nan"),
-            "aa_entropy": float("nan"),
-            "kl_aa": None,
-            "kl_len": None,
         }
 
     pct_unique = len(set(sequences)) / len(sequences) * 100.0
     duplicate_rate = 1.0 - (len(set(sequences)) / max(len(sequences), 1))
-    pos_ent = positional_entropy(sequences)
     lev_mean = mean_levenshtein(sequences, n_pairs=lev_pairs) if lev_pairs and lev_pairs > 0 else float("nan")
-
-    p_gen = aa_distribution(sequences)
-    aa_ent = shannon_entropy(p_gen)
-
-    kl_aa = None
-    kl_len = None
-    if train_sequences:
-        p_train = aa_distribution(train_sequences)
-        kl_aa = kl_div(p_gen, p_train)
-
-        len_gen = length_distribution(sequences)
-        len_train = length_distribution(train_sequences)
-        if len_gen.size != len_train.size:
-            max_len = max(len_gen.size, len_train.size)
-            len_gen = np.pad(len_gen, (0, max_len - len_gen.size))
-            len_train = np.pad(len_train, (0, max_len - len_train.size))
-        kl_len = kl_div(len_gen, len_train)
 
     return {
         "pct_unique": float(pct_unique),
         "duplicate_rate": float(duplicate_rate),
-        "positional_entropy": float(pos_ent),
         "lev_mean": float(lev_mean),
-        "aa_entropy": float(aa_ent),
-        "kl_aa": None if kl_aa is None else float(kl_aa),
-        "kl_len": None if kl_len is None else float(kl_len),
     }
 
 
@@ -172,11 +128,8 @@ __all__ = [
     "length_distribution",
     "kl_div",
     "shannon_entropy",
-    "positional_entropy",
     "hydrophobic_moment",
     "gravy",
     "mean_levenshtein",
     "compute_diversity_metrics",
 ]
-
-
