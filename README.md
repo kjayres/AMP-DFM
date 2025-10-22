@@ -2,6 +2,8 @@
 
 This repository contains the core functions and code from my MSc thesis. This project involved designing a generative antimicrobial peptide model, AMP-DFM, to overcome core limitations in generative AMP models - notably, the increased toxicity risk that emerges from solely optimising the antimicrobial potency of generated peptides.
 
+![AMP-DFM Overview](documentation/dfm.drawio.png)
+
 A generative discrete flow matching model was used to create realistic and diverse peptides. The denoising process was then modified using trained classifiers for haemolysis, cytotoxicity and antimicrobial activity. Peptides were steered towards Pareto-optimal trade-offs across these properties with the goal of producing candidate sequences more likely to succeed in clinical settings.
 
 Other parts of the analysis such as peptide structure prediction, comparison with other models (generative + classifiers) and data collation were performed in a separate repository. This repository contains the core analysis and main results.

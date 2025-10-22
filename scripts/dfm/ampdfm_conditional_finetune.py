@@ -34,23 +34,23 @@ with open(args.config, "r") as f:
     cfg = yaml.safe_load(f)
 
 TRAIN_PATH = cfg["data"]["train_path"]
-VAL_PATH   = cfg["data"]["val_path"]
+VAL_PATH = cfg["data"]["val_path"]
 
 INIT_CKPT = cfg["init"]["ckpt"]
-CKPT_OUT  = cfg["output"]["ckpt_out"]
+CKPT_OUT = cfg["output"]["ckpt_out"]
 Path(CKPT_OUT).parent.mkdir(parents=True, exist_ok=True)
 
-vocab_size  = 24
-embed_dim   = 1024
-hidden_dim  = 512
+vocab_size = 24
+embed_dim = 1024
+hidden_dim = 512
 
-lr            = float(cfg.get("training", {}).get("lr", 5e-5))
-epochs        = int(cfg.get("training", {}).get("epochs", 50))
+lr = float(cfg.get("training", {}).get("lr", 5e-5))
+epochs = int(cfg.get("training", {}).get("epochs", 50))
 warmup_epochs = int(cfg.get("training", {}).get("warmup_epochs", max(1, epochs // 10)))
-batch_size    = int(cfg.get("training", {}).get("batch_size", 512))
-epsilon       = float(cfg.get("training", {}).get("epsilon", 1e-3))
-source_dist   = args.source_dist
-poly_n        = float(cfg.get("scheduler", {}).get("polynomial_n", 2.0))
+batch_size = int(cfg.get("training", {}).get("batch_size", 512))
+epsilon = float(cfg.get("training", {}).get("epsilon", 1e-3))
+source_dist = args.source_dist
+poly_n = float(cfg.get("scheduler", {}).get("polynomial_n", 2.0))
 
 seed = int(cfg.get("training", {}).get("seed", 42))
 random.seed(seed)
@@ -64,13 +64,13 @@ else:
     device = "cpu"
 
 train_ds = load_from_disk(TRAIN_PATH)
-val_ds   = load_from_disk(VAL_PATH)
+val_ds = load_from_disk(VAL_PATH)
 
 if args.amp_only:
     def keep_amp(record):
         return any(sum(vec) > 0 for vec in record["cond_vec"])
     train_ds = train_ds.filter(keep_amp)
-    val_ds   = val_ds.filter(keep_amp)
+    val_ds = val_ds.filter(keep_amp)
 
 def collate_amp_filter(batch):
     out = dataloader.collate_fn(batch)
@@ -83,7 +83,7 @@ def collate_amp_filter(batch):
 
 data_module = dataloader.CustomDataModule(train_ds, val_ds, test_dataset=None, collate_fn=collate_amp_filter)
 train_loader = data_module.train_dataloader()
-val_loader   = data_module.val_dataloader()
+val_loader = data_module.val_dataloader()
 
 model = CNNModel(alphabet_size=vocab_size, embed_dim=embed_dim, hidden_dim=hidden_dim, cond_dim=4).to(device)
 
@@ -94,13 +94,13 @@ try:
 except Exception as e:
     print("[WARN] Could not load init checkpoint:", e)
 
-path    = MixtureDiscreteProbPath(PolynomialConvexScheduler(n=poly_n))
+path = MixtureDiscreteProbPath(PolynomialConvexScheduler(n=poly_n))
 loss_fn = MixturePathGeneralizedKL(path=path)
-optim   = torch.optim.Adam(model.parameters(), lr=lr)
+optim = torch.optim.Adam(model.parameters(), lr=lr)
 
 warmup_lambda = lambda ep: 0.1 + 0.9 * ep / warmup_epochs if ep < warmup_epochs else 1.0
-warmup_sched  = LambdaLR(optim, lr_lambda=warmup_lambda)
-cosine_sched  = CosineAnnealingLR(optim, T_max=epochs - warmup_epochs, eta_min=0.1*lr)
+warmup_sched = LambdaLR(optim, lr_lambda=warmup_lambda)
+cosine_sched = CosineAnnealingLR(optim, T_max=epochs - warmup_epochs, eta_min=0.1*lr)
 
 def general_step(x_1: torch.Tensor, cond_vec: torch.Tensor) -> torch.Tensor:
     if source_dist == "uniform":
@@ -112,10 +112,10 @@ def general_step(x_1: torch.Tensor, cond_vec: torch.Tensor) -> torch.Tensor:
     else:
         raise NotImplementedError
 
-    t      = torch.rand(x_1.size(0), device=device) * (1 - epsilon)
+    t = torch.rand(x_1.size(0), device=device) * (1 - epsilon)
     sample = path.sample(t=t, x_0=x_0, x_1=x_1)
     logits = model(sample.x_t, sample.t, cond_vec=cond_vec)
-    loss   = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
+    loss = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
     return loss
 
 print("Starting conditional fine-tune...")
@@ -142,7 +142,7 @@ for epoch in range(epochs):
             val_losses.append(loss.item())
 
     mean_train = sum(train_losses)/len(train_losses)
-    mean_val   = sum(val_losses)/len(val_losses)
+    mean_val = sum(val_losses)/len(val_losses)
 
     if mean_val < best_val:
         best_val = mean_val
