@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_embeddings(base_dir: Optional[Union[str, Path]] = None) -> Tuple[np.ndarray, dict[str, int]]:
-    """Load ESM-2 embeddings and sequence index."""
+    """Load ESM-2 embeddings and sequence index"""
     if base_dir is not None:
         base = Path(base_dir)
         emb_path = base / "esm2/esm2_all.npy"
@@ -44,7 +44,7 @@ def prepare_features(
     embeddings: np.ndarray,
     sequence_index: dict[str, int],
 ) -> Tuple[np.ndarray, np.ndarray, list[str]]:
-    """Extract embedding features for sequences. Returns (X, y, sequences)."""
+    """Extract embedding features for sequences"""
     feats, labels, seqs = [], [], []
 
     for _, row in sequences_df.iterrows():
@@ -66,7 +66,7 @@ def prepare_features(
 def create_train_val_test_splits(
     labeled_sequences: pd.DataFrame,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Split sequences into train/val/test based on 'split' column."""
+    """Split sequences into train/val/test based on 'split' column"""
     train = labeled_sequences[labeled_sequences["split"] == "train"].copy()
     val = labeled_sequences[labeled_sequences["split"] == "val"].copy()
     test = labeled_sequences[labeled_sequences["split"] == "test"].copy()

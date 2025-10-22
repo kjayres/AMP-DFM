@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 import math
 
 def parse_guidance_args(argv=None):
-    """Parse guidance-related arguments."""
+    """Parse guidance-related arguments"""
     parser = ArgumentParser(add_help=False)
     
     parser.add_argument("--num_div", type=int, default=64)

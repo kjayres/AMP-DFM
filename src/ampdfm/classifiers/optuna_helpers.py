@@ -24,7 +24,7 @@ def get_xgboost_search_space(
     search_space_config: Optional[dict[str, Any]] = None,
     base_params: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    """Build XGBoost parameter dict from Optuna trial and base params."""
+    """Build XGBoost params from Optuna trial"""
     search_space_config = search_space_config or {}
     params = dict(base_params) if base_params else {}
 
@@ -55,12 +55,11 @@ def tune_xgboost(
     base_params: Optional[dict[str, Any]] = None,
     num_boost_round: int = 2000,
     early_stopping_rounds: int = 100,
-    # Optional: leakage-free per-fold weighting for antimicrobial activity
     dev_df: Optional[pd.DataFrame] = None,
     dev_sequences: Optional[list[str]] = None,
     gamma_synthetic: Optional[float] = None,
 ) -> dict[str, Any]:
-    """Run Optuna tuning for XGBoost. Returns best parameters."""
+    """Run Optuna tuning for XGBoost"""
     if optuna is None:
         logger.error("Optuna not installed")
         return {}
@@ -73,25 +72,20 @@ def tune_xgboost(
         aucs = []
 
         for tr_idx, va_idx in gkf.split(X_dev, groups=groups_dev):
-            # Prefer leakage-free per-fold weights when dev_df/dev_sequences/gamma are provided
             if (
                 dev_df is not None
                 and dev_sequences is not None
                 and gamma_synthetic is not None
                 and "quality" in dev_df.columns
             ):
-                # Build sequence→(label, quality) map once from dev_df
-                # dev_df is expected to have one row per sequence
                 seq_meta = (
                     dev_df.drop_duplicates("sequence")[["sequence", "label", "quality"]]
                     .set_index("sequence")
                 )
 
-                # Get sequence order for current fold indices
                 tr_seqs = [dev_sequences[i] for i in tr_idx]
                 va_seqs = [dev_sequences[i] for i in va_idx]
 
-                # Compute omegas from TRAIN FOLD ONLY (no leakage)
                 tr_rows_df = dev_df[dev_df["sequence"].isin(tr_seqs)].copy()
                 num_pos = int((tr_rows_df["label"] == 1).sum())
                 num_neg_cur = int(
@@ -102,7 +96,6 @@ def tune_xgboost(
                 )
                 total = num_pos + num_neg_cur + num_neg_syn
 
-                # Guard against degenerate folds; if invalid, fall back to unweighted for this fold
                 if num_pos == 0 or (num_neg_cur + gamma_synthetic * num_neg_syn) == 0 or total == 0:
                     dtr = xgb.DMatrix(X_dev[tr_idx], label=y_dev[tr_idx])
                     dva = xgb.DMatrix(X_dev[va_idx], label=y_dev[va_idx])
@@ -123,11 +116,9 @@ def tune_xgboost(
                         )
 
                     tr_w = np.asarray([_weight_for(s) for s in tr_seqs], dtype=float)
-                    # Keep validation UNWEIGHTED to match final training/evaluation
                     dtr = xgb.DMatrix(X_dev[tr_idx], label=y_dev[tr_idx], weight=tr_w)
                     dva = xgb.DMatrix(X_dev[va_idx], label=y_dev[va_idx])
             else:
-                # Unweighted for tasks without synthetic negatives (haemolysis, cytotoxicity)
                 dtr = xgb.DMatrix(X_dev[tr_idx], label=y_dev[tr_idx])
                 dva = xgb.DMatrix(X_dev[va_idx], label=y_dev[va_idx])
 
@@ -148,6 +139,3 @@ def tune_xgboost(
 
     logger.info(f"Best params: {study.best_params}")
     return study.best_params
-
-
-

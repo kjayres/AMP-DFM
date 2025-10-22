@@ -2,16 +2,7 @@
 
 Collect all unique peptide sequences from the filtered data tables
 and cache mean-pooled ESM-2 (650 M) embeddings.
-
-The resulting files are written to
-    amp_dfm/data/embeddings/seqs.txt   – one AA string per line (same order as npy)
-    amp_dfm/data/embeddings/esm2/esm2_all.npy – float32 array (N, 1280)
-
-Run locally:
-    python amp_dfm/scripts/data_preprocessing/generate_embeddings.py --device cuda --batch 32
-
-or submit via:
-    qsub amp_dfm/scripts/data_preprocessing/generate_embeddings.sh
+Run via: qsub amp_dfm/scripts/data_preprocessing/generate_embeddings.sh
 """
 from __future__ import annotations
 
@@ -27,28 +18,22 @@ import torch
 
 # Import from amp_dfm package
 import sys
-ROOT = Path(__file__).resolve().parents[3]  # /mog_dfm
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "amp_dfm" / "src"))
 from ampdfm.utils.esm_embed import get_esm_embeddings
 
 AMP_DFM_ROOT = ROOT / "amp_dfm"
 DATA_DIR = AMP_DFM_ROOT / "data" / "filtered"
-# Root embeddings directory
 EMB_DIR = AMP_DFM_ROOT / "data" / "embeddings"
 EMB_DIR.mkdir(exist_ok=True)
 
-# Dedicated directory for ESM-2 embeddings
 ESM2_DIR = EMB_DIR / "esm2"
 ESM2_DIR.mkdir(exist_ok=True)
-
-# Source tables for embedding generation – use the *final* cleaned datasets
-# plus the Swiss-Prot and *filtered* synthetic negatives.
 CSV_FILES = [
     DATA_DIR / "activities_final_long.csv",
     DATA_DIR / "haemolysis_final_long.csv",
     DATA_DIR / "cytotoxicity_final_long.csv",
     DATA_DIR / "negatives_swissprot_long.csv",
-    # Additional negative sources (exclude synthetic negatives)
     DATA_DIR / "negatives_general_peptides_long.csv",
     DATA_DIR / "negatives_uniprot_long.csv",
 ]
@@ -58,7 +43,7 @@ logger = logging.getLogger("generate_embeddings")
 
 
 def load_unique_sequences(files: List[Path]) -> List[str]:
-    """Read *sequence* column from each CSV and return a deduplicated list."""
+    """Read sequence column from each CSV and return a deduplicated list"""
     seq_set: set[str] = set()
 
     for csv in files:
@@ -67,7 +52,7 @@ def load_unique_sequences(files: List[Path]) -> List[str]:
         seq_set.update(df["sequence"].dropna().astype(str).tolist())
         logger.info("  cumulative unique seqs: %d", len(seq_set))
 
-    return sorted(seq_set)  # stable order for reproducibility
+    return sorted(seq_set)
 
 
 def main():
@@ -77,7 +62,7 @@ def main():
     parser.add_argument("--overwrite", action="store_true", help="Recompute even if output exists")
     args = parser.parse_args()
 
-    seq_txt = EMB_DIR / "seqs.txt"  # keep here for downstream clustering scripts
+    seq_txt = EMB_DIR / "seqs.txt"
     emb_npy = ESM2_DIR / "esm2_all.npy"
     index_pkl = ESM2_DIR / "sequence_index.pkl"
 
@@ -94,7 +79,6 @@ def main():
     np.save(emb_npy, embs)
     logger.info("Saved embeddings to %s (shape %s)", emb_npy.relative_to(ROOT), embs.shape)
 
-    # Save sequence→index mapping for fast lookup during model training
     seq_index = {seq: i for i, seq in enumerate(sequences)}
     with open(index_pkl, "wb") as f:
         pickle.dump(seq_index, f)
@@ -102,4 +86,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
