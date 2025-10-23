@@ -7,19 +7,8 @@
     "hits_pa": 46,
     "hits_ec": 97,
     "%unique": 100.0,
-    "duplicate_rate": 0.0,
-    "shannon": 2.8598954904289347,
-    "positional_entropy": 2.8598954904289347,
-    "lev_mean": 29.266,
-    "perplexity": 5.764594169873147,
-    "kl_aa": null,
-    "kl_len": null,
-    "exact_overlap": null,
-    "mmseqs80_hits": null,
-    "lev_to_train_avg": null,
-    "lev_to_train_median": null,
-    "lev_to_train_prop_lt5": null,
-    "aa_entropy": null
+    "lev_mean": 28.9331,
+    "perplexity": 5.764594169873147
   },
   {
     "tag": "ampdfm_cond",
@@ -29,18 +18,7 @@
     "hits_pa": 152,
     "hits_ec": 325,
     "%unique": 100.0,
-    "duplicate_rate": 0.0,
-    "shannon": 2.8445747741759755,
-    "positional_entropy": 2.8445747741759755,
-    "lev_mean": 29.2595,
-    "perplexity": 6.1635724975571655,
-    "kl_aa": null,
-    "kl_len": null,
-    "exact_overlap": null,
-    "mmseqs80_hits": null,
-    "lev_to_train_avg": null,
-    "lev_to_train_median": null,
-    "lev_to_train_prop_lt5": null,
-    "aa_entropy": null
+    "lev_mean": 28.8859,
+    "perplexity": 6.1635724975571655
   }
 ]

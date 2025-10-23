@@ -26,7 +26,6 @@ git clone https://github.com/kjayres/AMP-DFM
 cd amp_dfm
 conda env create -f documentation/amp-dfm.yml
 conda activate amp-dfm
-pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 triton==3.0.0 --index-url https://download.pytorch.org/whl/cu124
 ```
 
 ## Data Preprocessing

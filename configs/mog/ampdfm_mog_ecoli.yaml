@@ -1,5 +1,5 @@
-ckpt: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
-out_dir: /rds/general/user/kja24/home/amp_dfm/outputs/peptides/ecoli
+ckpt: checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
+out_dir: outputs/peptides/ecoli
 run_name: ecoli_hp4_111_2000
 
 amp_variant: ecoli
@@ -16,6 +16,4 @@ importance: [1, 1, 1]
 
 # Guidance parameters
 homopolymer_gamma: 4.0
-
-# Extra guidance parameters are still accepted via CLI and passed through
 

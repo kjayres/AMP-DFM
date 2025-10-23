@@ -7,6 +7,6 @@
 #PBS -e /rds/general/user/kja24/home/amp_dfm/scripts/mog/
 
 cd /rds/general/user/kja24/home/amp_dfm
-source /rds/general/user/kja24/home/anaconda3/bin/activate amp-dfm
+source /rds/general/user/kja24/home/miniforge3/bin/activate amp-dfm
 
-python /rds/general/user/kja24/home/amp_dfm/scripts/mog/ampdfm_mog.py --config /rds/general/user/kja24/home/amp_dfm/configs/mog/ampdfm_mog_saureus.yaml
+python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_saureus.yaml

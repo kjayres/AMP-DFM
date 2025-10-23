@@ -1,5 +1,5 @@
-ckpt: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
-out_dir: /rds/general/user/kja24/home/amp_dfm/outputs/peptides/paeruginosa
+ckpt: checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
+out_dir: outputs/peptides/paeruginosa
 run_name: paeruginosa_hp4_111_2000
 
 amp_variant: paeruginosa
