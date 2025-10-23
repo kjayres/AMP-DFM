@@ -1,13 +1,12 @@
 models:
-  # TAG:CKPT[:cond]
-  - ampdfm_uncond:/rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
-  - ampdfm_cond:/rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_conditional_finetuned.ckpt:generic
+  - ampdfm_uncond:checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
+  - ampdfm_cond:checkpoints/dfm/ampdfm_conditional_finetuned.ckpt:generic
 
 data:
-  amp_val_path: /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_cond/val
-  pep_val_path: /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_uncond/val
+  amp_val_path: data/dfm/tokenised_ampdfm_cond/val
+  pep_val_path: data/dfm/tokenised_ampdfm_uncond/val
 
-out_dir: /rds/general/user/kja24/home/amp_dfm/outputs/model_comparison
+out_dir: outputs/model_comparison
 n: 10000
 seed: 1234
 

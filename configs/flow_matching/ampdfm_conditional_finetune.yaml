@@ -1,12 +1,12 @@
 data:
-  train_path: /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_cond/train
-  val_path:   /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_cond/val
+  train_path: data/dfm/tokenised_ampdfm_cond/train
+  val_path:   data/dfm/tokenised_ampdfm_cond/val
 
 init:
-  ckpt: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
+  ckpt: checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
 
 output:
-  ckpt_out: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_conditional_finetuned.ckpt
+  ckpt_out: checkpoints/dfm/ampdfm_conditional_finetuned.ckpt
 
 training:
   lr: 5.0e-5

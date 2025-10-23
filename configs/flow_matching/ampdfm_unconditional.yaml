@@ -1,9 +1,9 @@
 data:
-  train_path: /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_uncond/train
-  val_path:   /rds/general/user/kja24/home/amp_dfm/data/dfm/tokenised_ampdfm_uncond/val
+  train_path: data/dfm/tokenised_ampdfm_uncond/train
+  val_path:   data/dfm/tokenised_ampdfm_uncond/val
 
 output:
-  ckpt_out: /rds/general/user/kja24/home/amp_dfm/checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
+  ckpt_out: checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt
 
 training:
   lr: 1.0e-4

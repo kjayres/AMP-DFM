@@ -254,11 +254,10 @@ def main():
         amp_ec = classifier_ec.predict_from_embeddings(embs)
 
         pd.DataFrame({"sequence": seqs, "amp_generic": amp_generic, "amp_sa": amp_sa,
-                      "amp_pa": amp_pa, "amp_ec": amp_ec}).to_csv(out_dir / f"{_slug(label)}_scores.csv", index=False)
+                      "amp_pa": amp_pa, "amp_ec": amp_ec}).to_csv(out_dir / f"{tag.lower()}_scores.csv", index=False)
 
         metrics = compute_diversity_metrics(seqs, lev_pairs=lev_samples)
         pct_unique = metrics["pct_unique"]
-        dup_rate = metrics["duplicate_rate"]
         lev_mean = metrics["lev_mean"]
 
         print("Validation perplexity")
@@ -273,7 +272,7 @@ def main():
         hits_ec = int((amp_ec >= thr).sum())
 
         summaries.append({"tag": tag, "label": label, "hits_generic": hits_generic, "hits_sa": hits_sa,
-            "hits_pa": hits_pa, "hits_ec": hits_ec, "%unique": pct_unique, "duplicate_rate": dup_rate,
+            "hits_pa": hits_pa, "hits_ec": hits_ec, "%unique": pct_unique,
             "lev_mean": lev_mean, "perplexity": ppl})
 
     (out_dir / "summary_metrics.json").write_text(json.dumps(summaries, indent=2))

@@ -3,9 +3,9 @@
 task: antimicrobial_activity
 
 # Data paths
-data_dir: /rds/general/user/kja24/home/amp_dfm/data
-checkpoint_dir: /rds/general/user/kja24/home/amp_dfm/checkpoints/classifiers
-output_dir: /rds/general/user/kja24/home/amp_dfm/outputs/classifiers
+data_dir: data
+checkpoint_dir: checkpoints/classifiers
+output_dir: outputs/classifiers
 
 # Task-specific parameters
 organism: "Escherichia coli"
