@@ -228,9 +228,7 @@ class MixtureDiscreteEulerSolver(Solver):
                     u = torch.where(
                         delta_t.to(dtype=torch.bool), torch.zeros_like(u), u
                     )
-                    # import pdb
-                    # if i % 10 == 0:
-                    #     pdb.set_trace()
+                    
                     # Sample x_t ~ u_t( \cdot |x_t,x_1)
                     intensity = u.sum(dim=-1)  # Assuming u_t(xt|xt,x1) := 0
                     mask_jump = torch.rand(size=x_t.shape, device=x_t.device) < 1 - torch.exp(-h * intensity)

@@ -2,10 +2,7 @@ from torch import nn
 import torch
 import numpy as np
 from transformers import AutoModel
-import torch.nn.functional as F
 import esm
-import copy
-import pdb
 from typing import Optional
 
 class GaussianFourierProjection(nn.Module):
