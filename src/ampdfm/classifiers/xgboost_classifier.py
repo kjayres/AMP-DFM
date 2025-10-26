@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """XGBoost classifier base class with shared training/inference logic."""
 
 from __future__ import annotations

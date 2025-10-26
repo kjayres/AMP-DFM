@@ -1,9 +1,4 @@
-"""generate_embeddings.py
-
-Collect all unique peptide sequences from the filtered data tables
-and cache mean-pooled ESM-2 (650 M) embeddings.
-Run via: qsub amp_dfm/scripts/data_preprocessing/generate_embeddings.sh
-"""
+"""Collect all unique peptide sequences and cache mean-pooled ESM-2 (650 M) embeddings."""
 from __future__ import annotations
 
 import argparse

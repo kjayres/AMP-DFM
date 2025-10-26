@@ -1,8 +1,4 @@
-"""mmseqs_cluster.py
-
-Cluster peptide sequences at 80% global identity using MMseqs2 easy-linclust.
-Run via: qsub amp_dfm/scripts/data_preprocessing/mmseqs_cluster.sh
-"""
+"""Cluster peptide sequences at 80% global identity using MMseqs2 easy-linclust."""
 import subprocess
 import tempfile
 from pathlib import Path
@@ -22,17 +18,13 @@ def main():
             "Run generate_embeddings.py first to create seqs.txt"
         )
     
-    print(f"Building FASTA from {seqs_txt}...")
     with open(seqs_txt, 'r') as f_in, open(seqs_fasta, 'w') as f_out:
         for idx, line in enumerate(f_in, start=1):
             seq = line.strip()
             if seq:
                 f_out.write(f">seq{idx}\n{seq}\n")
     
-    print(f"Created {seqs_fasta}")
-    
     with tempfile.TemporaryDirectory() as tmpdir:
-        print(f"\nRunning MMseqs2 clustering (80% identity, 80% coverage)...")
         cmd = [
             "mmseqs", "easy-linclust",
             str(seqs_fasta),
@@ -53,17 +45,14 @@ def main():
         
         if result.stdout:
             print(result.stdout)
-        
-        print("\nMMseqs2 clustering finished!")
+    
     clusters_tsv = EMB_DIR / "clusters_cluster.tsv"
     if clusters_tsv.exists():
         with open(clusters_tsv, 'r') as f:
             num_lines = sum(1 for _ in f)
         print(f"Cluster mapping: {num_lines} lines written to {clusters_tsv}")
     else:
-        print(f"Warning: Expected output {clusters_tsv} not found")
-    
-    print(f"\nKeeping {seqs_fasta} for reference")
+        print(f"Note: Expected output {clusters_tsv} not found")
 
 
 if __name__ == "__main__":

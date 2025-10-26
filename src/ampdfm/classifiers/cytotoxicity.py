@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Cytotoxicity classifier for cell-line toxicity prediction."""
 
 from __future__ import annotations

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Haemolysis classifier for erythrocyte toxicity prediction."""
 
 from __future__ import annotations

@@ -1,9 +1,4 @@
-#!/usr/bin/env python3
-"""prepare_ampdfm_uncond_dataset.py
-
-Build an unconditional AMP-DFM dataset (no conditioning vectors).
-Run via: qsub amp_dfm/scripts/hpc_cluster/prepare_ampdfm_uncond_dataset.sh
-"""
+"""Build an unconditional AMP-DFM dataset (no conditioning vectors)."""
 from __future__ import annotations
 
 import math
@@ -70,7 +65,6 @@ def encode(seq: str) -> List[int]:
 def pad(seq: List[int], length: int) -> List[int]:
     return seq + [SPECIALS["<pad>"]] * (length - len(seq))
 
-print("Reading input tables...")
 print("Will save to:", OUT_ROOT)
 
 raw_activity = pd.read_csv(ACTIVITY_CSV)
@@ -89,11 +83,10 @@ full_df = pd.concat([activity_df, neg_df], ignore_index=True)
 full_df = full_df.drop_duplicates("sequence").copy()
 print("Total unique sequences:", len(full_df))
 
-print("Tokenising...")
 encoded = [encode(s) for s in tqdm(full_df["sequence"], ncols=80)]
 max_len = max(len(t) for t in encoded)
 if max_len > 52:
-    print(f"WARNING: Found sequence length {max_len - 2} aa > 50. Padding to {max_len} tokens.")
+    print(f"Note: Found sequence length {max_len - 2} aa > 50. Padding to {max_len} tokens.")
 print("Longest sequence (incl specials):", max_len)
 
 padded = [pad(t, max_len) for t in encoded]
@@ -113,7 +106,7 @@ OUT_ROOT.mkdir(parents=True, exist_ok=True)
 for split in ("train", "val", "test"):
     split_df = full_df[full_df["split"] == split]
     if split_df.empty:
-        print(f"[WARN] No rows for split '{split}' - skipping.")
+        print(f"Note: No rows for split '{split}' - skipping.")
         continue
 
     records = []
@@ -130,5 +123,3 @@ for split in ("train", "val", "test"):
     out_dir = OUT_ROOT / split
     print(f"Saving {len(ds):,} records -> {out_dir.relative_to(AMP_DFM_ROOT)}")
     ds.save_to_disk(out_dir.as_posix())
-
-print("Done - unconditional dataset prepared at", OUT_ROOT.relative_to(AMP_DFM_ROOT))

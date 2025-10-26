@@ -1,9 +1,4 @@
-#!/usr/bin/env python3
-"""prepare_ampdfm_cond_dataset.py
-
-Build the conditional AMP-DFM tokenised dataset with 4-bit conditioning vectors.
-Run via: qsub amp_dfm/scripts/hpc_cluster/prepare_ampdfm_cond_dataset.sh
-"""
+"""Build the conditional AMP-DFM tokenised dataset with 4-bit conditioning vectors."""
 from __future__ import annotations
 
 import math
@@ -88,8 +83,6 @@ def pad(seq: List[int], max_len: int, pad_tok: int = SPECIAL_TOKENS["<pad>"]) ->
     return seq + [pad_tok] * (max_len - len(seq))
 
 
-print("Reading input tables...")
-
 # Activities
 activity_rows = pd.read_csv(ACTIVITY_CSV)
 df_activity = label_activity_rows(activity_rows)
@@ -141,13 +134,12 @@ df["cond_vec"] = [
     for seq, is_amp in zip(df["sequence"], df["is_amp"])
 ]
 
-print("Tokenising sequences...")
 encoded: List[List[int]] = [
     encode(seq) for seq in tqdm(df["sequence"], total=len(df), ncols=80)
 ]
 max_len = max(len(toks) for toks in encoded)
 if max_len > 52:
-    print(f"WARNING: Found sequence length {max_len-2} aa > 50. Padding to {max_len} tokens.")
+    print(f"Note: Found sequence length {max_len-2} aa > 50. Padding to {max_len} tokens.")
 print(f"Longest sequence (tokens incl. specials): {max_len}")
 
 padded = [pad(toks, max_len) for toks in encoded]
@@ -168,7 +160,7 @@ OUT_ROOT.mkdir(parents=True, exist_ok=True)
 for split_name in ("train", "val", "test"):
     split_df = df[df["split"] == split_name]
     if split_df.empty:
-        print(f"[WARN] No rows for split '{split_name}' - skipping.")
+        print(f"Note: No rows for split '{split_name}' - skipping.")
         continue
     records = []
     rows = split_df.to_dict("records")
@@ -185,5 +177,3 @@ for split_name in ("train", "val", "test"):
     out_dir = OUT_ROOT / split_name
     print(f"Saving {len(ds):,} records -> {out_dir.relative_to(AMP_DFM_ROOT)}")
     ds.save_to_disk(out_dir.as_posix())
-
-print("Done - conditional dataset prepared at", OUT_ROOT.relative_to(AMP_DFM_ROOT))

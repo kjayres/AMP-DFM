@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 """Multi-objective ampdfm sampling guided by XGBoost classifiers"""
-# fmt: off
+
 import argparse
 import csv
 from pathlib import Path
@@ -26,10 +25,7 @@ def _resolve_classifier_paths(task: str, variant: Optional[str] = None) -> tuple
     """Locate classifier model.json and metadata.pkl"""
     project_root = Path(__file__).resolve().parents[2]
 
-    candidate_bases = [
-        project_root / "outputs" / "classifiers",
-        project_root / "checkpoints" / "classifiers",
-    ]
+    classifier_base = project_root / "checkpoints" / "classifiers"
 
     def _normalise_variant(name: Optional[str]) -> List[str]:
         if not name:
@@ -47,22 +43,20 @@ def _resolve_classifier_paths(task: str, variant: Optional[str] = None) -> tuple
     tried_paths = []
 
     if task == "antimicrobial_activity":
-        for base in candidate_bases:
-            for vn in _normalise_variant(variant):
-                root = base / task / vn
-                model_path = root / "model.json"
-                meta_path = root / "metadata.pkl"
-                tried_paths.append(root)
-                if model_path.exists() and meta_path.exists():
-                    return model_path, meta_path
-    else:
-        for base in candidate_bases:
-            root = base / task
+        for vn in _normalise_variant(variant):
+            root = classifier_base / task / vn
             model_path = root / "model.json"
             meta_path = root / "metadata.pkl"
             tried_paths.append(root)
             if model_path.exists() and meta_path.exists():
                 return model_path, meta_path
+    else:
+        root = classifier_base / task
+        model_path = root / "model.json"
+        meta_path = root / "metadata.pkl"
+        tried_paths.append(root)
+        if model_path.exists() and meta_path.exists():
+            return model_path, meta_path
 
     tried_str = ", ".join(str(p) for p in tried_paths)
     raise FileNotFoundError(

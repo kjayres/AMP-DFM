@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Token mappings for AMP-DFM 24-token vocabulary"""
 
 from __future__ import annotations
