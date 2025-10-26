@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Train ampdfm-sized CNN model without conditioning"""
 from __future__ import annotations
 
@@ -90,8 +89,6 @@ def general_step(x_1: torch.Tensor) -> torch.Tensor:
     loss = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
     return loss
 
-print("Starting unconditional training...")
-
 best_val = float("inf")
 for epoch in range(epochs):
     model.train()
@@ -127,5 +124,3 @@ for epoch in range(epochs):
 
     if epoch % 5 == 0 or epoch == epochs-1:
         print(f"Epoch {epoch:03d}: train {mean_train:.4f}  val {mean_val:.4f}")
-
-print("Training complete. Best ValLoss:", best_val)

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Sample peptides from unconditional AMP-DFM model and score with classifiers"""
 from __future__ import annotations
 

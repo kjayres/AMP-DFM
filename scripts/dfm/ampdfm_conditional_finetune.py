@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fine-tune ampdfm CNN with 4-bit conditioning vector [AMP, EC, PA, SA]"""
 from __future__ import annotations
 
@@ -24,8 +23,6 @@ from ampdfm.utils import dataloader
 
 parser = argparse.ArgumentParser(description="Fine-tune AMP-DFM with 4-bit conditioning vector")
 parser.add_argument("--config", required=True, help="Path to YAML config file")
-parser.add_argument("--amp_only", action="store_true", help="Keep only AMP-positive sequences (any cond bit = 1)")
-parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda", help="Force device (default: cuda)")
 parser.add_argument("--source_dist", choices=["uniform", "mask"], default="uniform",
                     help="Source distribution for x_0 (default: uniform)")
 args = parser.parse_args()
@@ -58,30 +55,18 @@ torch.manual_seed(seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
 
-if args.device == "cuda" and torch.cuda.is_available():
-    device = "cuda:0"
-else:
-    device = "cpu"
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 train_ds = load_from_disk(TRAIN_PATH)
 val_ds = load_from_disk(VAL_PATH)
 
-if args.amp_only:
-    def keep_amp(record):
-        return any(sum(vec) > 0 for vec in record["cond_vec"])
-    train_ds = train_ds.filter(keep_amp)
-    val_ds = val_ds.filter(keep_amp)
+def keep_amp(record):
+    return any(sum(vec) > 0 for vec in record["cond_vec"])
 
-def collate_amp_filter(batch):
-    out = dataloader.collate_fn(batch)
-    if args.amp_only:
-        mask = (out["cond_vec"].sum(dim=1) > 0)
-        out["input_ids"] = out["input_ids"][mask]
-        out["attention_mask"] = out["attention_mask"][mask]
-        out["cond_vec"] = out["cond_vec"][mask]
-    return out
+train_ds = train_ds.filter(keep_amp)
+val_ds = val_ds.filter(keep_amp)
 
-data_module = dataloader.CustomDataModule(train_ds, val_ds, test_dataset=None, collate_fn=collate_amp_filter)
+data_module = dataloader.CustomDataModule(train_ds, val_ds, test_dataset=None, batch_size=batch_size)
 train_loader = data_module.train_dataloader()
 val_loader = data_module.val_dataloader()
 
@@ -92,7 +77,7 @@ try:
     missing, unexpected = model.load_state_dict(sd, strict=False)
     print("Loaded init checkpoint with missing keys:", missing, "unexpected:", unexpected)
 except Exception as e:
-    print("[WARN] Could not load init checkpoint:", e)
+    print("Note: Could not load init checkpoint:", e)
 
 path = MixtureDiscreteProbPath(PolynomialConvexScheduler(n=poly_n))
 loss_fn = MixturePathGeneralizedKL(path=path)
@@ -118,7 +103,6 @@ def general_step(x_1: torch.Tensor, cond_vec: torch.Tensor) -> torch.Tensor:
     loss = loss_fn(logits=logits, x_1=x_1, x_t=sample.x_t, t=sample.t)
     return loss
 
-print("Starting conditional fine-tune...")
 best_val = float("inf")
 for epoch in range(epochs):
     model.train()
@@ -156,5 +140,3 @@ for epoch in range(epochs):
 
     if epoch % 5 == 0 or epoch == epochs-1:
         print(f"Epoch {epoch:03d}: train {mean_train:.4f}  val {mean_val:.4f}")
-
-print("Fine-tune complete. Best ValLoss:", best_val)

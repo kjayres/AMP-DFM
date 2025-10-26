@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""Assign train/val/test splits based on sequence clustering to prevent data leakage."""
 
 import pandas as pd
 import numpy as np
@@ -10,10 +10,8 @@ def main():
     output_dir = amp_dfm_root / "data" / "clustered"
     emb_dir = amp_dfm_root / "data" / "embeddings"
     
-    print("Loading clustering results...")
     clu = pd.read_csv(emb_dir / "clusters_cluster.tsv", sep='\t', names=["member", "representative"])
     
-    print("Creating complete sequence-to-cluster mapping...")
     all_members = set(clu['member'])
     all_representatives = set(clu['representative'])
     all_sequences = all_members | all_representatives
@@ -34,7 +32,6 @@ def main():
     
     print(f"Complete mapping size: {len(seq_to_cluster)}")
     
-    print("Loading sequence mapping...")
     seqs = [line.strip() for line in open(emb_dir / "seqs.txt")]
     id_to_seq = {f"seq{i+1}": seq for i, seq in enumerate(seqs)}
     
@@ -43,12 +40,11 @@ def main():
     missing_ids = expected_ids - mapped_ids
     
     if missing_ids:
-        print(f"WARNING: {len(missing_ids)} sequences missing from cluster mapping!")
+        print(f"Note: {len(missing_ids)} sequences missing from cluster mapping!")
         print(f"First 10 missing: {list(missing_ids)[:10]}")
     else:
-        print("✓ All sequences successfully mapped to clusters")
+        print("All sequences successfully mapped to clusters")
     
-    print("Assigning train/val/test splits...")
     unique_clusters = list(set(seq_to_cluster.values()))
     np.random.seed(42)
     np.random.shuffle(unique_clusters)
@@ -81,7 +77,7 @@ def main():
     ]
     
     for input_file, output_file in datasets:
-        print(f"\nProcessing {input_file}...")
+        print(f"Input file: {input_file}")
         
         df = pd.read_csv(input_dir / input_file)
         print(f"Loaded {len(df)} rows")
@@ -94,7 +90,7 @@ def main():
         
         unmapped = df[df['sequence_id'].isna()]
         if len(unmapped) > 0:
-            print(f"WARNING: {len(unmapped)} sequences not found in embedding cache")
+            print(f"Note: {len(unmapped)} sequences not found in embedding cache")
             unmapped_seqs = unmapped['sequence'].unique()
             with open(emb_dir / f"unmapped_{input_file.split('_')[0]}.txt", 'w') as f:
                 f.write('\n'.join(unmapped_seqs))
@@ -106,7 +102,7 @@ def main():
         if len(unmapped_clusters) > 0:
             print(f"ERROR: {len(unmapped_clusters)} sequences couldn't be mapped to clusters!")
         else:
-            print("✓ All sequences successfully mapped to clusters")
+            print("All sequences successfully mapped")
         
         df['split'] = df['cluster_id'].map(cluster_to_split)
         

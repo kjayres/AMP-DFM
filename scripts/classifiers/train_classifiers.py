@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Unified classifier training script for AMP-DFM classifiers."""
 
 from __future__ import annotations

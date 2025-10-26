@@ -1,4 +1,4 @@
-
+"""Compare unconditional and conditional AMP-DFM models by sampling and evaluating diversity metrics."""
 from __future__ import annotations
 
 import argparse, math, random, json
@@ -246,7 +246,6 @@ def main():
 
         label = _display_label(tag, ckpt_path, cond)
 
-        print("Scoring")
         embs = get_esm_embeddings(seqs, device=device)
         amp_generic = generic_classifier.predict_from_embeddings(embs)
         amp_sa = classifier_sa.predict_from_embeddings(embs)
@@ -260,7 +259,6 @@ def main():
         pct_unique = metrics["pct_unique"]
         lev_mean = metrics["lev_mean"]
 
-        print("Validation perplexity")
         cond_map = {"generic": [1,0,0,0], "ec": [1,1,0,0], "pa": [1,0,1,0], "sa": [1,0,0,1], "all": [1,1,1,1]}
         cond_vec_for_ppl = cond_map[cond.lower()] if cond else None
         vp = val_map.get(tag, val_path)
@@ -276,7 +274,6 @@ def main():
             "lev_mean": lev_mean, "perplexity": ppl})
 
     (out_dir / "summary_metrics.json").write_text(json.dumps(summaries, indent=2))
-    print("Saved summary ->", out_dir)
 
 
 if __name__ == "__main__":

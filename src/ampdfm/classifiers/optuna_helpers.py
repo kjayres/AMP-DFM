@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Optuna hyper-parameter tuning for XGBoost classifiers."""
 
 from __future__ import annotations

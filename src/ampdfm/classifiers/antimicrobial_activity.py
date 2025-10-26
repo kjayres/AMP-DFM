@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Antimicrobial activity classifier for peptide antimicrobial activity prediction."""
 
 from __future__ import annotations

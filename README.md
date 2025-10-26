@@ -1,167 +1,149 @@
 # AMP-DFM: Discrete Flow Matching for Multi-Property Antimicrobial Peptides
 
-This repository contains the core functions and code from my MSc thesis. This project involved designing a generative antimicrobial peptide model, AMP-DFM, to overcome core limitations in generative AMP models - notably, the increased toxicity risk that emerges from solely optimising the antimicrobial potency of generated peptides.
+This project involved developing AMP-DFM, a generative antimicrobial peptide model designed to address limitations in current AMP generation approaches - notably, the increased toxicity risk from optimising solely for antimicrobial potency during generation.
 
 ![AMP-DFM Overview](documentation/dfm.drawio.png)
 
-A generative discrete flow matching model was used to create realistic and diverse peptides. The denoising process was then modified using trained classifiers for haemolysis, cytotoxicity and antimicrobial activity. Peptides were steered towards Pareto-optimal trade-offs across these properties with the goal of producing candidate sequences more likely to succeed in clinical settings.
+A generative discrete flow matching model was used to create realistic and diverse peptides. The sampling process was guided by trained classifiers for haemolysis, cytotoxicity and antimicrobial activity. Peptides were steered towards Pareto-optimal trade-offs across these properties with the goal of producing candidate sequences more likely to succeed in clinical settings.
 
-Other parts of the analysis such as peptide structure prediction, comparison with other models (generative + classifiers) and data collation were performed in a separate repository. This repository contains only the main analysis and results.
-
-## Outline
-
-- **Data Preprocessing**: Cluster sequences with MMseqs2, generate ESM-2 embeddings, and prepare tokenised datasets
-- **XGBoost Classifiers**: Train classifiers on ESM-2 embeddings for antimicrobial activity, haemolysis, and cytotoxicity prediction
-- **Unconditional Training**: Train a discrete flow matching model on antimicrobial peptide sequences
-- **Conditional Fine-tuning**: Fine-tune the model with 4-bit conditioning vectors for specific antimicrobial activities (generic, E. coli, P. aeruginosa, S. aureus)
-- **Unguided Sampling**: Generate peptides from the trained model without guidance
-- **Multi-Objective Guided Sampling**: Generate peptides optimised for antimicrobial activity while minimising haemolysis and cytotoxicity
+Other parts of the analysis such as peptide structure prediction, comparison with other models (generative + classifiers) and data collation are omitted from this repository. This repository contains only the main analysis and results.
 
 ## Setup
 
-Create and activate the conda environment from the provided environment file:
+Create and activate the conda environment from the provided environment yaml file:
 
 ```bash
 git clone https://github.com/kjayres/AMP-DFM
 cd amp_dfm
-conda env create -f documentation/amp-dfm.yml
+conda env create -f documentation/amp-dfm.yaml
 conda activate amp-dfm
 ```
 
-## Data Preprocessing
+## Analytical Pipeline
 
-Prepare the datasets before training models. Run these scripts in order:
+The model was developed through the following steps:
 
-### Sequence Clustering
-
-Cluster sequences using MMseqs2 and assign train/val/test splits:
+1. **Data Preprocessing**: Sequences were clustered using MMseqs2 at 80% identity to prevent data leakage. ESM-2 (650M) embeddings were generated for classifier training. Tokenised datasets were prepared for the generative models.
 
 ```bash
+# Cluster sequences and assign train/val/test splits
 python scripts/data_preprocessing/mmseqs_cluster.py
 python scripts/data_preprocessing/assign_cluster_split.py
-```
 
-### Generate Embeddings
-
-Generate ESM-2 embeddings for classifier training:
-
-```bash
+# Generate ESM-2 embeddings for classifier training
 python scripts/data_preprocessing/generate_embeddings.py
-```
 
-### Prepare Tokenised Datasets
-
-Prepare unconditional dataset:
-
-```bash
+# Prepare tokenized datasets for generative models
 python scripts/data_preprocessing/prepare_ampdfm_uncond_dataset.py
-```
-
-Prepare conditional dataset with 4-bit conditioning vectors:
-
-```bash
 python scripts/data_preprocessing/prepare_ampdfm_cond_dataset.py
 ```
 
-## Classifiers
-
-Train XGBoost classifiers on ESM-2 embeddings for peptide property prediction. These classifiers are used to evaluate generated peptides.
+2. **Classifier Training**: XGBoost classifiers were trained on ESM-2 embeddings to predict antimicrobial activity (generic and organism-specific), haemolysis, and cytotoxicity.
 
 ```bash
-# Antimicrobial activity classifier (generic)
+# Main classifiers
 python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/antimicrobial_activity_generic_xgboost.yaml
-
-# Haemolysis classifier
 python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/haemolysis_xgboost.yaml
-
-# Cytotoxicity classifier
 python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/cytotoxicity_xgboost.yaml
-```
 
-Organism-specific antimicrobial activity classifiers can also be trained:
-
-```bash
-# E. coli
+# Organism-specific antimicrobial activity classifiers
 python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/antimicrobial_activity_ecoli_xgboost.yaml
-
-# P. aeruginosa
 python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/antimicrobial_activity_paeruginosa_xgboost.yaml
-
-# S. aureus
 python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/antimicrobial_activity_saureus_xgboost.yaml
 ```
 
-Classifiers are saved in `checkpoints/classifiers/`.
-
-## Training
-
-### Unconditional Training
-
-Train an unconditional AMP-DFM model on antimicrobial peptide sequences:
+3. **Model Training**: A time-conditioned CNN was trained to estimate transition probabilities along a mixture path that evolves sequences from a uniform distribution towards data through single-position edits. Training minimised the generalised KL divergence between the teacher posterior and the model posterior which allows for novel peptide generation.
 
 ```bash
-python scripts/dfm/ampdfm_unconditional.py --config configs/flow_matching/ampdfm_unconditional.yaml
-```
+# Unconditional training
+python scripts/dfm/ampdfm_unconditional.py \
+    --config configs/flow_matching/ampdfm_unconditional.yaml
 
-The unconditional model learns the distribution of antimicrobial peptides without conditioning on specific properties. Training uses a CNN architecture with discrete flow matching and mixture path generalised KL loss.
-
-### Conditional Fine-tuning
-
-Fine-tune the unconditional model with 4-bit conditioning vectors for targeted antimicrobial activity:
-
-```bash
+# Conditional fine-tuning (optional)
 python scripts/dfm/ampdfm_conditional_finetune.py \
-    --config configs/flow_matching/ampdfm_conditional_finetune.yaml \
-    --device cuda \
-    --amp_only
+    --config configs/flow_matching/ampdfm_conditional_finetune.yaml
+
+# Unguided sampling
+python scripts/dfm/ampdfm_uncond_sample.py \
+    --config configs/flow_matching/ampdfm_uncond_sample.yaml
 ```
 
-The conditional model extends the architecture with conditioning on four antimicrobial activity types: generic, E. coli, P. aeruginosa, and S. aureus. Though I didn't find this to be anymore useful than simply using a species-specific classifier trained on a subset of the main antimicrobial activity dataset.
-
-## Sampling
-
-### Unguided Sampling
-
-Generate peptides from the trained model without classifier guidance:
+4. **Multi-Objective Guidance**: During sampling, classifiers scored single-position edit candidates across the three objectives. Proposals were reweighted using importance weights, penalised for homopolymer formation, and sampled via Euler jumps weighted by the guided transition rates.
 
 ```bash
-python scripts/dfm/ampdfm_uncond_sample.py --config configs/flow_matching/ampdfm_uncond_sample.yaml
-```
-
-This generates peptides and, for the sake of comparison, evaluates them using the trained classifiers for antimicrobial activity, haemolysis, and cytotoxicity.
-
-### Multi-Objective Guided Sampling
-
-Generate peptides optimised for multiple objectives using classifier-guided sampling:
-
-```bash
+# Generic antimicrobial activity
 python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_generic.yaml
+
+# Organism-specific variants
+python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_ecoli.yaml
+python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_paeruginosa.yaml
+python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_saureus.yaml
 ```
 
-This uses the classifiers to guide the generative process toward the design of peptides with high antimicrobial activity and low haemolysis and cytotoxicity. The guidance process can be customised through various parameters. Here are a few:
+### Generation Parameters
 
-**Key parameters in the config file:**
+The generation process can be customised through config file parameters and command-line options:
+
+**Config file parameters:**
 - `amp_variant`: Target organism (generic, ecoli, paeruginosa, saureus)
-- `importance`: Weighting for each objective [antimicrobial, haemolysis, cytotoxicity]
-- `homopolymer_gamma`: Penalty strength for homopolymer sequences
-- `n_samples` and `n_batches`: Number of peptides to generate
+- `importance`: Weighting for each objective [antimicrobial, haemolysis, cytotoxicity].
+- `homopolymer_gamma`: Penalty strength for homopolymer sequences to avoid repetitive patterns
+- `n_samples`: Total number of peptides to generate
+- `n_batches`: Number of batches to split generation into
+- `len_min` and `len_max`: Peptide length range
+- `seq_length` (optional): Fixes sequence length (overrides `len_min`/`len_max` when set)
 
-**Additional command-line options:**
-- `--guidance-weight`: Strength of classifier guidance during sampling
-- `--temperature`: Sampling temperature (controls diversity)
-- `--cone-angle`: Angular constraint for maintaining sequence coherence during guidance
+**Command-line options:**
+- `--T`: Number of sampling steps
+- `--beta`: Guidance reweighting scale
+- `--lambda_`: Trade‑off for directional score vs average rank
+- `--Phi_init`, `--Phi_min`, `--Phi_max`: Hypercone angle (radians)
+- `--tau`, `--alpha_r`, `--eta`: Adaptation controls for the hypercone angle (EMA target and update rate)
+- `--num_div`: Simplex discretisation for importance weight vectors
+
+Example Usage:
+```bash
+python scripts/mog/ampdfm_mog.py \
+  --config configs/mog/ampdfm_mog_generic.yaml \
+  --T 150 \
+  --beta 2.0 \
+  --lambda_ 1.0 \
+  --Phi_init 0.785 \
+  --Phi_min 0.262 \
+  --Phi_max 1.309 \
+  --tau 0.3 \
+  --alpha_r 0.5 \
+  --eta 1.0 \
+  --num_div 64
+```
 
 ## Outputs
 
-Generated peptides are saved in two formats:
-- **FASTA**: Sequences in FASTA format (`outputs/peptides/*/samples.fa`)
-- **CSV**: Sequences with classifier scores (`outputs/peptides/*/samples_scores.csv`)
+### Checkpoints
+
+- DFM model checkpoints are saved under `checkpoints/dfm/`:
+  - Unconditional model: `checkpoints/dfm/ampdfm_unconditional_epoch200.ckpt`
+  - Conditional fine-tuned model: `checkpoints/dfm/ampdfm_conditional_finetuned.ckpt`
+
+- Classifier checkpoints are saved under `checkpoints/classifiers/`:
+  - Antimicrobial activity (organism-specific): `checkpoints/classifiers/antimicrobial_activity/<variant>/model.json` with `metadata.pkl`
+  - Haemolysis and cytotoxicity: `checkpoints/classifiers/<task>/model.json` with `metadata.pkl`
+
+### Peptides
+
+Generated peptides are saved as fasta and CSV files which contain scores/probabilities provided by the classifiers:
+- Guided (MOG):
+  - **FASTA**: `outputs/peptides/<variant>/<run_name>.fa`
+  - **CSV**: `outputs/peptides/<variant>/<run_name>_scores.csv`
+- Unguided:
+  - **FASTA**: `outputs/peptides/unguided/unconditional_samples.fa`
+  - **CSV**: `outputs/peptides/unguided/unconditional_samples_scores.csv`
 
 ## Citation
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """XGBoost classifier models for antimicrobial peptide property prediction.
 
 Provides classifiers for antimicrobial activity, haemolysis, and cytotoxicity.

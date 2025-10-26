@@ -14,6 +14,6 @@ len_max: 30
 # Importance weights for classifiers: antimicrobial_activity, haemolysis, cytotoxicity
 importance: [1, 1, 1]
 
-# Guidance parameters
+# Penalty on homopolymer insertions
 homopolymer_gamma: 4.0
 

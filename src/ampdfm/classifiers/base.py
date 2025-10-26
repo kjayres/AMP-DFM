@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Base class for AMP classifiers."""
 
 from __future__ import annotations
