@@ -1,12 +1,12 @@
 # AMP-DFM: Discrete Flow Matching for Multi-Property Antimicrobial Peptides
 
-This project involved developing AMP-DFM, a generative antimicrobial peptide model designed to address limitations in current AMP generation approaches - notably, the increased toxicity risk from optimising solely for antimicrobial potency during generation.
+This repository contains the core code from my MSc thesis, which developed AMP-DFM, a generative model for designing antimicrobial peptides that balance multiple clinical properties.
 
 ![AMP-DFM Overview](documentation/dfm.drawio.png)
 
-A generative discrete flow matching model was used to create realistic and diverse peptides. The sampling process was guided by trained classifiers for haemolysis, cytotoxicity and antimicrobial activity. Peptides were steered towards Pareto-optimal trade-offs across these properties with the goal of producing candidate sequences more likely to succeed in clinical settings.
+The model uses discrete flow matching to generate realistic and diverse peptides, guided by classifiers for antimicrobial activity, haemolysis, and cytotoxicity. Generation is steered towards Pareto-optimal trade-offs to produce candidates more likely to succeed in clinical settings.
 
-Other parts of the analysis such as peptide structure prediction, comparison with other models (generative + classifiers) and data collation are omitted from this repository. This repository contains only the main analysis and results.
+Other parts of the analysis such as peptide structure prediction, comparison with other models (generative + classifiers) and data collation are omitted from this repository, which contains only the main functions and results.
 
 ## Setup
 
@@ -14,7 +14,7 @@ Create and activate the conda environment from the provided environment yaml fil
 
 ```bash
 git clone https://github.com/kjayres/AMP-DFM
-cd amp_dfm
+cd AMP-DFM
 conda env create -f documentation/amp-dfm.yaml
 conda activate amp-dfm
 ```
@@ -48,17 +48,11 @@ python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/haemolysis_xgboost.yaml
 python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/cytotoxicity_xgboost.yaml
-
-# Organism-specific antimicrobial activity classifiers
-python scripts/classifiers/train_classifiers.py \
-    --config configs/classifiers/antimicrobial_activity_ecoli_xgboost.yaml
-python scripts/classifiers/train_classifiers.py \
-    --config configs/classifiers/antimicrobial_activity_paeruginosa_xgboost.yaml
-python scripts/classifiers/train_classifiers.py \
-    --config configs/classifiers/antimicrobial_activity_saureus_xgboost.yaml
 ```
 
-3. **Model Training**: A time-conditioned CNN was trained to estimate transition probabilities along a mixture path that evolves sequences from a uniform distribution towards data through single-position edits. Training minimised the generalised KL divergence between the teacher posterior and the model posterior which allows for novel peptide generation.
+For organism-specific antimicrobial activity classifiers, see `configs/classifiers/`.
+
+3. **Model Training**: A time-conditioned CNN was trained to estimate transition probabilities along a mixture path that evolves sequences from a uniform distribution towards data through single-position edits. Training minimises the generalised KL divergence between the teacher posterior and the model posterior which allows for novel peptide generation.
 
 ```bash
 # Unconditional training
@@ -77,18 +71,14 @@ python scripts/dfm/ampdfm_uncond_sample.py \
 4. **Multi-Objective Guidance**: During sampling, classifiers scored single-position edit candidates across the three objectives. Proposals were reweighted using importance weights, penalised for homopolymer formation, and sampled via Euler jumps weighted by the guided transition rates.
 
 ```bash
-# Generic antimicrobial activity
 python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_generic.yaml
-
-# Organism-specific variants
-python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_ecoli.yaml
-python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_paeruginosa.yaml
-python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_saureus.yaml
 ```
+
+For organism-specific variants (ecoli, paeruginosa, saureus), see `configs/mog/`.
 
 ### Generation Parameters
 
-The generation process can be customised through config file parameters and command-line options:
+The generation process can be customised through adjustment of the following parameters:
 
 **Config file parameters:**
 - `amp_variant`: Target organism (generic, ecoli, paeruginosa, saureus)
