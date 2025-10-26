@@ -23,7 +23,7 @@ conda activate amp-dfm
 
 The model was developed through the following steps:
 
-1. **Data Preprocessing**: Sequences were clustered using MMseqs2 at 80% identity to prevent data leakage. ESM-2 (650M) embeddings were generated for classifier training. Tokenised datasets were prepared for the generative models.
+1. **Data Preprocessing**: Sequences are clustered using MMseqs2 at 80% identity to prevent data leakage. ESM-2 (650M) embeddings are used for classifier training. Sequences are tokenised for the generative models.
 
 ```bash
 # Cluster sequences and assign train/val/test splits
@@ -33,12 +33,12 @@ python scripts/data_preprocessing/assign_cluster_split.py
 # Generate ESM-2 embeddings for classifier training
 python scripts/data_preprocessing/generate_embeddings.py
 
-# Prepare tokenized datasets for generative models
+# Prepare tokenised datasets for generative models
 python scripts/data_preprocessing/prepare_ampdfm_uncond_dataset.py
 python scripts/data_preprocessing/prepare_ampdfm_cond_dataset.py
 ```
 
-2. **Classifier Training**: XGBoost classifiers were trained on ESM-2 embeddings to predict antimicrobial activity (generic and organism-specific), haemolysis, and cytotoxicity.
+2. **Classifier Training**: XGBoost classifiers are trained on ESM-2 embeddings to predict antimicrobial activity (generic and organism-specific), haemolysis, and cytotoxicity.
 
 ```bash
 # Main classifiers
@@ -50,9 +50,9 @@ python scripts/classifiers/train_classifiers.py \
     --config configs/classifiers/cytotoxicity_xgboost.yaml
 ```
 
-For organism-specific antimicrobial activity classifiers, see `configs/classifiers/`.
+For organism-specific antimicrobial activity classifiers, we subset the activity dataset to assays tested against the organism of interest. Training proceeds in the same way.
 
-3. **Model Training**: A time-conditioned CNN was trained to estimate transition probabilities along a mixture path that evolves sequences from a uniform distribution towards data through single-position edits. Training minimises the generalised KL divergence between the teacher posterior and the model posterior which allows for novel peptide generation.
+3. **Model Training**: A time-conditioned CNN is trained to estimate transition probabilities along a mixture path that evolves sequences from a uniform distribution towards data through single-position edits. Training minimises the generalised KL divergence between the teacher posterior (the conditional distribution over single‑position edits given the current sequence and time) and the model’s predicted edit distribution, which allows for novel peptide generation.
 
 ```bash
 # Unconditional training
@@ -68,13 +68,13 @@ python scripts/dfm/ampdfm_uncond_sample.py \
     --config configs/flow_matching/ampdfm_uncond_sample.yaml
 ```
 
-4. **Multi-Objective Guidance**: During sampling, classifiers scored single-position edit candidates across the three objectives. Proposals were reweighted using importance weights, penalised for homopolymer formation, and sampled via Euler jumps weighted by the guided transition rates.
+4. **Multi-Objective Guidance**: During sampling, classifiers score single-position edit candidates across the three objectives. Proposals are reweighted using importance weights, penalised for homopolymer formation, and sampled via Euler jumps weighted by the guided transition rates.
 
 ```bash
 python scripts/mog/ampdfm_mog.py --config configs/mog/ampdfm_mog_generic.yaml
 ```
 
-For organism-specific variants (ecoli, paeruginosa, saureus), see `configs/mog/`.
+For organism-specific variants (ecoli, paeruginosa, saureus), we simply call the organism-specific activity classifier for scoring instead.
 
 ### Generation Parameters
 
